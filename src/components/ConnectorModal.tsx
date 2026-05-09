@@ -47,6 +47,108 @@ const STATUS_DOT: Record<string, string> = {
   pending: 'bg-amber-500',
 };
 
+// Built-in connector catalog (used when backend doesn't provide types)
+const DEFAULT_CONNECTOR_TYPES: ConnectorType[] = [
+  {
+    type_id: 'ADF',
+    name: 'Azure Data Factory',
+    category: 'ETL',
+    description: 'Azure Data Factory — service principal credentials',
+    icon_hint: 'cloud',
+    fields: [
+      { name: 'tenant_id', label: 'Tenant ID', kind: 'text', required: true },
+      { name: 'client_id', label: 'Client ID', kind: 'text', required: true },
+      { name: 'client_secret', label: 'Client secret', kind: 'password', secret: true },
+      { name: 'subscription_id', label: 'Subscription ID', kind: 'text' },
+      { name: 'resource_group', label: 'Resource group', kind: 'text' },
+      { name: 'factory_name', label: 'Factory name', kind: 'text' },
+    ],
+  },
+  {
+    type_id: 'DATABRICKS',
+    name: 'Databricks',
+    category: 'ETL',
+    description: 'Databricks workspace — personal access token',
+    icon_hint: 'cloud',
+    fields: [
+      { name: 'workspace_url', label: 'Workspace URL', kind: 'url', required: true },
+      { name: 'personal_access_token', label: 'Personal access token', kind: 'password', secret: true },
+    ],
+  },
+  {
+    type_id: 'GIT',
+    name: 'GitHub Actions',
+    category: 'VCS',
+    description: 'GitHub Actions — Personal Access Token',
+    icon_hint: 'message',
+    fields: [
+      { name: 'provider', label: 'Provider', kind: 'select', options: ['github', 'gitlab'], default: 'github' },
+      { name: 'token', label: 'Personal Access Token', kind: 'password', secret: true },
+      { name: 'owner', label: 'Owner / Org', kind: 'text' },
+      { name: 'repo', label: 'Repository', kind: 'text' },
+    ],
+  },
+  {
+    type_id: 'postgres',
+    name: 'Postgres',
+    category: 'Databases',
+    description: 'Connect to Postgres databases',
+    icon_hint: 'layers',
+    fields: [
+      { name: 'host', label: 'Host', kind: 'text', required: true },
+      { name: 'port', label: 'Port', kind: 'text', default: '5432' },
+      { name: 'database', label: 'Database', kind: 'text' },
+      { name: 'user', label: 'User', kind: 'text' },
+      { name: 'password', label: 'Password', kind: 'password', secret: true },
+    ],
+  },
+  {
+    type_id: 'mysql',
+    name: 'MySQL',
+    category: 'Databases',
+    description: 'Connect to MySQL or MariaDB',
+    icon_hint: 'layers',
+    fields: [
+      { name: 'host', label: 'Host', kind: 'text', required: true },
+      { name: 'port', label: 'Port', kind: 'text', default: '3306' },
+      { name: 'database', label: 'Database', kind: 'text' },
+      { name: 'user', label: 'User', kind: 'text' },
+      { name: 'password', label: 'Password', kind: 'password', secret: true },
+    ],
+  },
+  {
+    type_id: 's3',
+    name: 'S3',
+    category: 'Storage',
+    description: 'Amazon S3 / S3-compatible object storage',
+    icon_hint: 'cloud',
+    fields: [
+      { name: 'bucket', label: 'Bucket', kind: 'text', required: true },
+      { name: 'region', label: 'Region', kind: 'text' },
+      { name: 'access_key', label: 'Access key', kind: 'text', secret: true },
+      { name: 'secret_key', label: 'Secret key', kind: 'password', secret: true },
+    ],
+  },
+  {
+    type_id: 'slack',
+    name: 'Slack',
+    category: 'Messaging',
+    description: 'Post notifications to Slack',
+    icon_hint: 'message',
+    fields: [
+      { name: 'webhook', label: 'Webhook URL', kind: 'url', required: true, secret: true },
+    ],
+  },
+  {
+    type_id: 'http',
+    name: 'HTTP',
+    category: 'Integration',
+    description: 'Generic HTTP webhook/ingest',
+    icon_hint: 'activity',
+    fields: [{ name: 'url', label: 'URL', kind: 'url', required: true }],
+  },
+];
+
 type View =
   | { kind: 'list' }
   | { kind: 'pickType' }
@@ -202,6 +304,7 @@ export function ConnectorModal({ open, onClose, connectors, onChange }: Props) {
 
               {view.kind === 'form' && (
                 <ConnectorForm
+                  typeId={view.typeId}
                   spec={typeMap[view.typeId]}
                   initialDetail={detail}
                   onSaved={() => {
@@ -330,16 +433,30 @@ function PickTypeView(props: {
   onPick: (typeId: string) => void;
 }) {
   const { types, connectors, onPick } = props;
-  const existingTypeIds = new Set(connectors.map((c) => c.id));
+  const existingTypeIds = new Set(connectors.map((c) => String((c as any).type_id ?? c.id)));
+
+  // Merge backend types with defaults (avoid duplicates)
+  const mergedTypes: ConnectorType[] = [];
+  const seen = new Set<string>();
+  for (const t of [...types, ...DEFAULT_CONNECTOR_TYPES]) {
+    if (seen.has(t.type_id)) continue;
+    seen.add(t.type_id);
+    mergedTypes.push(t);
+  }
 
   // Group by category
   const groups: Record<string, ConnectorType[]> = {};
-  for (const t of types) {
+  for (const t of mergedTypes) {
     (groups[t.category] = groups[t.category] || []).push(t);
   }
 
   return (
     <div className="p-6 space-y-6">
+      {types.length === 0 && (
+        <div className="mx-1 px-3 py-2 rounded-md bg-amber-50 border border-amber-100 text-amber-800 text-sm">
+          Connector type catalog unavailable — showing common connector templates.
+        </div>
+      )}
       {Object.entries(groups).map(([cat, items]) => (
         <div key={cat}>
           <h3 className="text-[10px] uppercase font-black tracking-[0.18em] text-[#9CA3AF] mb-2">
@@ -378,22 +495,28 @@ function PickTypeView(props: {
 // ---------- Form view ----------
 
 function ConnectorForm(props: {
+  typeId?: string;
   spec?: ConnectorType;
   initialDetail: ConnectorDetail | null;
   onSaved: () => void;
   onError: (m: string) => void;
 }) {
-  const { spec, initialDetail, onSaved, onError } = props;
+  const { typeId, spec, initialDetail, onSaved, onError } = props;
   const [values, setValues] = useState<Record<string, any>>({});
   const [name, setName] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ status: string; detail: string } | null>(null);
 
+  // prefer backend spec, fall back to built-in defaults by typeId
+  const effectiveSpec = spec ?? DEFAULT_CONNECTOR_TYPES.find((t) => t.type_id === typeId);
+
+  const fields = effectiveSpec?.fields ?? [];
+
   useEffect(() => {
-    if (!spec) return;
+    if (!effectiveSpec) return;
     const initial: Record<string, any> = {};
-    for (const f of spec.fields) {
+    for (const f of fields) {
       if (initialDetail?.config && Object.prototype.hasOwnProperty.call(initialDetail.config, f.name)) {
         initial[f.name] = initialDetail.config[f.name];
       } else if (f.default !== undefined) {
@@ -403,10 +526,10 @@ function ConnectorForm(props: {
       }
     }
     setValues(initial);
-    setName(initialDetail?.name || spec.name);
-  }, [spec, initialDetail]);
+    setName(initialDetail?.name || effectiveSpec.name);
+  }, [effectiveSpec, initialDetail, fields]);
 
-  if (!spec) return <div className="p-6 text-sm text-[#6B7280]">Loading…</div>;
+  if (!effectiveSpec) return <div className="p-6 text-sm text-[#6B7280]">Loading…</div>;
 
   const setField = (k: string, v: any) => setValues((s) => ({ ...s, [k]: v }));
 
@@ -417,15 +540,19 @@ function ConnectorForm(props: {
       // Strip the redaction sentinel before sending — the backend treats
       // it as "preserve previous value". But if the user types over it,
       // they overwrite normally.
+      if (!effectiveSpec) {
+        onError('connector type unavailable');
+        return;
+      }
       const cleaned: Record<string, any> = {};
-      for (const f of spec.fields) {
+      for (const f of fields) {
         const v = values[f.name];
         if (f.secret && (v === '********' || v === '')) {
           continue; // omit -> preserve existing
         }
         if (v !== undefined && v !== null) cleaned[f.name] = v;
       }
-      await api.upsertConnector({ type_id: spec.type_id, name, config: cleaned });
+      await api.upsertConnector({ type_id: effectiveSpec.type_id, name, config: cleaned });
       onSaved();
     } catch (e: any) {
       onError(e.message || 'save failed');
@@ -439,14 +566,18 @@ function ConnectorForm(props: {
     setTesting(true);
     setTestResult(null);
     try {
+      if (!effectiveSpec) {
+        setTestResult({ status: 'error', detail: 'connector type unavailable' });
+        return;
+      }
       const cleaned: Record<string, any> = {};
-      for (const f of spec.fields) {
+      for (const f of fields) {
         const v = values[f.name];
         if (f.secret && (v === '********' || v === '')) continue;
         if (v !== undefined && v !== null) cleaned[f.name] = v;
       }
-      await api.upsertConnector({ type_id: spec.type_id, name, config: cleaned });
-      const r = await api.testConnector(spec.type_id);
+      const created = await api.upsertConnector({ type_id: effectiveSpec.type_id, name, config: cleaned });
+      const r = await api.testConnector(String(created.id ?? created.type_id ?? effectiveSpec.type_id));
       setTestResult(r);
     } catch (e: any) {
       setTestResult({ status: 'error', detail: e.message });
@@ -469,7 +600,7 @@ function ConnectorForm(props: {
         />
       </div>
 
-      {spec.fields.map((f) => (
+      {fields.map((f) => (
         <FieldInput key={f.name} field={f} value={values[f.name]} onChange={(v) => setField(f.name, v)} />
       ))}
 

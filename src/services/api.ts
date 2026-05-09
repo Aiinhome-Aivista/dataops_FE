@@ -204,7 +204,14 @@ export const api = {
   getConnector: (id: string) => connectorsApi.get(id),
   connectorTypes: () => Promise.resolve([] as never[]),   // not available in DataOps_1
   upsertConnector: (body: { type_id: string; name?: string; config: Record<string, unknown> }) =>
-    connectorsApi.create(body),
+    connectorsApi.create({
+      name: body.name,
+      type: body.type_id,
+      credentials: {
+        type: body.type_id,
+        ...body.config,
+      },
+    } as any),
   deleteConnector: (id: string) => connectorsApi.remove(id),
   testConnector: (id: string) => connectorsApi.test(id),
 
