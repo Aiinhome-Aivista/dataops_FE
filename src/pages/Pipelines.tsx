@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ArrowLeft, Calendar, Database, Tag, User } from 'lucide-react';
+import { ArrowLeft, Calendar, Database, Tag, User, X } from 'lucide-react';
 import { Header } from '../components/Header';
 import { PipelineDAG } from '../components/PipelineDAG';
 import { PipelineStatusBadge } from '../components/Badges';
@@ -20,14 +20,21 @@ import type { Pipeline } from '../types';
 export function PipelinesPage() {
   const { state } = useStore();
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<'all' | 'tier-1' | 'tier-2' | 'unhealthy'>('all');
 
+  const connectorId = searchParams.get('connector_id');
+
   const filtered = useMemo(() => {
-    if (filter === 'all') return state.pipelines;
-    if (filter === 'unhealthy') return state.pipelines.filter((p) => p.status !== 'healthy');
-    return state.pipelines.filter((p) => p.tags.includes(filter));
-  }, [state.pipelines, filter]);
+    let list = state.pipelines;
+    if (connectorId) {
+      list = list.filter((p) => String(p.connector_id) === connectorId);
+    }
+    if (filter === 'all') return list;
+    if (filter === 'unhealthy') return list.filter((p) => p.status !== 'healthy');
+    return list.filter((p) => p.tags.includes(filter));
+  }, [state.pipelines, filter, connectorId]);
 
   const selected = id ? state.pipelines.find((p) => p.id === id) : null;
 
@@ -50,23 +57,33 @@ export function PipelinesPage() {
               { id: 'tier-2', label: 'Tier 2' },
               { id: 'unhealthy', label: 'Unhealthy' },
             ].map((f) => (
+            <button
+              onClick={() => setFilter(f.id as any)}
+              className={cn(
+                'px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] rounded border transition-all',
+                filter === f.id
+                  ? 'bg-[#111827] text-white border-[#111827]'
+                  : 'bg-white text-[#6B7280] border-[#E5E7EB] hover:border-gray-300',
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+          {connectorId && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700">
+              Filtered by Connector
               <button
-                key={f.id}
-                onClick={() => setFilter(f.id as any)}
-                className={cn(
-                  'px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] rounded border transition-all',
-                  filter === f.id
-                    ? 'bg-[#111827] text-white border-[#111827]'
-                    : 'bg-white text-[#6B7280] border-[#E5E7EB] hover:border-gray-300',
-                )}
+                onClick={() => setSearchParams({})}
+                className="ml-1 text-blue-400 hover:text-blue-600"
               >
-                {f.label}
+                <X className="w-3 h-3" />
               </button>
-            ))}
-            <span className="ml-auto text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
-              {filtered.length} matches
-            </span>
-          </div>
+            </div>
+          )}
+          <span className="ml-auto text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
+            {filtered.length} matches
+          </span>
+        </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filtered.map((p) => (

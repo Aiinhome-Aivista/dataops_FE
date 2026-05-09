@@ -20,6 +20,7 @@ const TYPE_BADGE: Record<string, string> = {
 export function ConnectorsPage() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [open, setOpen] = useState(false);
+  const [openOnNew, setOpenOnNew] = useState(false);
 
   const reload = async () => setConnectors(await api.connectors());
 
@@ -40,7 +41,7 @@ export function ConnectorsPage() {
         subtitle="External systems · orchestrators, telemetry, ticketing"
         actions={
           <button
-            onClick={() => setOpen(true)}
+            onClick={() => { setOpenOnNew(true); setOpen(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-[#111827] text-white hover:bg-black text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all"
           >
             <Plus className="w-3 h-3" />
@@ -128,9 +129,10 @@ export function ConnectorsPage() {
       </main>
       <ConnectorModal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { setOpen(false); setOpenOnNew(false); }}
         connectors={connectors}
         onChange={reload}
+        initialView={openOnNew ? 'new' : 'list'}
       />
     </>
   );

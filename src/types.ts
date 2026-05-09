@@ -50,7 +50,9 @@ export interface ResourceMetric {
 
 export interface Pipeline {
   id: string;
+  connector_id: number;
   name: string;
+  description?: string | null;
   status: PipelineStatus;
   last_run: string;
   throughput: number;
