@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Skeleton } from './Skeleton';
 
 interface Props {
   label: string;
@@ -29,6 +30,22 @@ export function StatCard({
         ? 'text-red-600'
         : 'text-[#6B7280]';
 
+  if (busy) {
+    return (
+      <div className="bg-white border border-[#E5E7EB] p-6 rounded-lg flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-7 w-7 rounded-md" />
+        </div>
+        <Skeleton className="h-8 w-24" />
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white border border-[#E5E7EB] p-6 rounded-lg hover:border-gray-300 transition-colors group relative overflow-hidden">
       <div className="flex items-start justify-between mb-3">
@@ -46,7 +63,7 @@ export function StatCard({
               accent === 'cyan' && 'border-cyan-100 bg-cyan-50 text-cyan-600',
               accent === 'violet' && 'border-violet-100 bg-violet-50 text-violet-600',
               accent === 'lime' && 'border-lime-100 bg-lime-50 text-lime-600',
-              accent === 'rose' && 'border-rose-100 bg-rose-50 text-rose-600',
+              accent === 'rose' && 'border-rose-100 bg-rose-600/10 text-rose-600',
               accent === 'default' && 'border-gray-100 bg-gray-50 text-gray-600',
             )}
           >

@@ -24,32 +24,49 @@ export const auth = {
   isAuthed: () => !!localStorage.getItem(TOKEN_KEY),
 };
 
+let activeRequests = 0;
+let loadingListener: ((loading: boolean) => void) | null = null;
+
+export const apiEvents = {
+  onLoading: (cb: (loading: boolean) => void) => { loadingListener = cb; }
+};
+
+function updateLoading(delta: number) {
+  activeRequests += delta;
+  loadingListener?.(activeRequests > 0);
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  const tok = auth.getToken();
-  if (tok) headers["Authorization"] = `Bearer ${tok}`;
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
-  if (res.status === 401) {
-    auth.clearToken();
-    if (!path.startsWith("/auth")) {
-      window.location.href = "/login";
+  updateLoading(1);
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(init?.headers as Record<string, string> | undefined),
+    };
+    const tok = auth.getToken();
+    if (tok) headers["Authorization"] = `Bearer ${tok}`;
+    const res = await fetch(`${BASE}${path}`, { ...init, headers });
+    if (res.status === 401) {
+      auth.clearToken();
+      if (!path.startsWith("/auth")) {
+        window.location.href = "/login";
+      }
+      throw new Error("unauthenticated");
     }
-    throw new Error("unauthenticated");
-  }
-  if (!res.ok) {
-    let detail = `${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = body.detail;
-    } catch {
-      // ignore
+    if (!res.ok) {
+      let detail = `${res.status} ${res.statusText}`;
+      try {
+        const body = await res.json();
+        if (body?.detail) detail = body.detail;
+      } catch {
+        // ignore
+      }
+      throw new Error(detail);
     }
-    throw new Error(detail);
+    return res.json() as Promise<T>;
+  } finally {
+    updateLoading(-1);
   }
-  return res.json() as Promise<T>;
 }
 
 export const api = {

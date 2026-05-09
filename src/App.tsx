@@ -13,6 +13,7 @@ import { AuditPage } from './pages/Audit';
 import { LoginPage } from './pages/Login';
 import { LandingPage } from './pages/Landing';
 import { auth } from './services/api';
+import { GlobalLoader } from './components/GlobalLoader';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const loc = useLocation();
@@ -25,6 +26,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function Shell() {
   return (
     <StoreProvider>
+      <GlobalLoader />
       <div className="flex h-screen bg-[#F9FAFB] text-[#111827] overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">

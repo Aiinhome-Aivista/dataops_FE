@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, createContext, useContext, type ReactNode } from 'react';
 import type { AgentStatus, Incident, LogEntry, Pipeline } from '../types';
-import { api, wsUrl } from '../services/api';
+import { api, wsUrl, apiEvents } from '../services/api';
 
 interface State {
   pipelines: Pipeline[];
@@ -9,6 +9,7 @@ interface State {
   logs: LogEntry[];
   simulating: boolean;
   connected: boolean;
+  isLoading: boolean;
   // Live highlighting — which agent is currently "thinking"
   activeAgentRoles: Record<string, number>; // role -> expiry epoch
 }
@@ -22,7 +23,8 @@ type Action =
   | { type: 'agent_started'; payload: { role: string; name: string; last_action: string } }
   | { type: 'agent_completed'; payload: { role: string; name: string; last_action: string } }
   | { type: 'simulating'; payload: boolean }
-  | { type: 'connected'; payload: boolean };
+  | { type: 'connected'; payload: boolean }
+  | { type: 'loading'; payload: boolean };
 
 const initial: State = {
   pipelines: [],
@@ -31,6 +33,7 @@ const initial: State = {
   logs: [],
   simulating: false,
   connected: false,
+  isLoading: false,
   activeAgentRoles: {},
 };
 
@@ -88,6 +91,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, simulating: action.payload };
     case 'connected':
       return { ...state, connected: action.payload };
+    case 'loading':
+      return { ...state, isLoading: action.payload };
   }
 }
 
@@ -179,6 +184,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
       }
     };
+
+    // Listen to global API loading events
+    apiEvents.onLoading((loading: boolean) => {
+      dispatch({ type: 'loading', payload: loading });
+    });
 
     bootstrap();
     connect();

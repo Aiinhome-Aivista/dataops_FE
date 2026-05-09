@@ -21,6 +21,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Skeleton } from "../components/Skeleton";
 import { Header } from "../components/Header";
 import { StatCard } from "../components/StatCard";
 import { LiveLogStream } from "../components/LiveLogStream";
@@ -318,7 +319,29 @@ export function DashboardPage() {
                 </button>
               </div>
               <div className="flex-1 divide-y divide-[#F3F4F6]">
-                {state.pipelines.map((pipeline) => (
+                {state.pipelines.length === 0
+                  ? [1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className="w-full p-5 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-4">
+                          <Skeleton className="w-8 h-8 rounded" />
+                          <div>
+                            <Skeleton className="h-4 w-32 mb-1" />
+                            <Skeleton className="h-3 w-48" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="hidden sm:flex flex-col items-end gap-1">
+                            <Skeleton className="h-3 w-16" />
+                            <Skeleton className="h-2 w-20" />
+                          </div>
+                          <Skeleton className="h-6 w-20 rounded-full" />
+                        </div>
+                      </div>
+                    ))
+                  : state.pipelines.map((pipeline) => (
                   <button
                     key={pipeline.id}
                     onClick={() => navigate(`/pipelines/${pipeline.id}`)}
