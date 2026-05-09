@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Activity,
+  Brain,
+  Plug,
+  Sparkles,
+  AlertTriangle,
   CheckCircle2,
-  Clock,
+  Activity,
   Database,
   Plus,
-  Zap,
-  Brain,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -19,36 +20,50 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
-import { Header } from '../components/Header';
-import { StatCard } from '../components/StatCard';
-import { LiveLogStream } from '../components/LiveLogStream';
-import { RiskBadge, StatusBadge, PipelineStatusBadge } from '../components/Badges';
-import { ConnectorModal } from '../components/ConnectorModal';
-import { useStore } from '../hooks/useStore';
-import { api } from '../services/api';
-import type { Connector, HealthMetric, MetricsSummary } from '../types';
-import { formatTime } from '../lib/utils';
+} from "recharts";
+import { Header } from "../components/Header";
+import { StatCard } from "../components/StatCard";
+import { LiveLogStream } from "../components/LiveLogStream";
+import {
+  RiskBadge,
+  StatusBadge,
+  PipelineStatusBadge,
+} from "../components/Badges";
+import { ConnectorModal } from "../components/ConnectorModal";
+import { useStore } from "../hooks/useStore";
+import { api } from "../services/api";
+import type { Connector, HealthMetric, DashboardStats } from "../types";
+import { formatTime } from "../lib/utils";
 
 export function DashboardPage() {
   const { state } = useStore();
   const navigate = useNavigate();
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
-  const [summary, setSummary] = useState<MetricsSummary | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [showModal, setShowModal] = useState(false);
 
   const reload = async () => {
     // Fetch connectors independently so they show even if metrics fail
-    api.connectors().then(setConnectors).catch(e => console.error("Connectors fetch failed", e));
+    api
+      .connectors()
+      .then(setConnectors)
+      .catch((e) => console.error("Connectors fetch failed", e));
+
+    // Fetch stats independently
+    api
+      .stats()
+      .then((res) => {
+        console.log("Dashboard Stats Received:", res);
+        // Handle potential { data: { ... } } wrapping
+        const data = (res as any).data || res;
+        setStats(data);
+      })
+      .catch((e) => console.error("Stats fetch failed", e));
 
     try {
-      const [hm, sm] = await Promise.all([
-        api.metricsHealth(),
-        api.metricsSummary(),
-      ]);
+      const hm = await api.metricsHealth();
       setHealthMetrics(hm);
-      setSummary(sm);
     } catch {
       /* ignore metrics failures */
     }
@@ -59,7 +74,7 @@ export function DashboardPage() {
   }, []);
 
   const openIncidents = state.incidents.filter(
-    (i) => i.status !== 'Remediated' && i.status !== 'Escalated',
+    (i) => i.status !== "Remediated" && i.status !== "Escalated",
   );
 
   return (
@@ -81,38 +96,45 @@ export function DashboardPage() {
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="space-y-10 max-w-7xl mx-auto">
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             <StatCard
-              label="MTTR (avg)"
-              value={summary ? `${summary.mttr_avg}m` : '—'}
-              trend="↓ 12%"
-              trendDir="up"
-              icon={Clock}
-              accent="blue"
+              label="Connectors"
+              value={stats?.total_connectors ?? connectors.length}
+              icon={Plug}
+              accent="cyan"
+              sub={`${connectors.filter((c) => c.status.toUpperCase() === "CONNECTED").length} connected`}
+              busy={!stats && connectors.length === 0}
             />
             <StatCard
-              label="MTTD (avg)"
-              value={summary ? `${summary.mttd_avg}m` : '—'}
-              trend="↓ 24%"
-              trendDir="up"
+              label="Pipelines"
+              value={stats?.total_pipelines ?? state.pipelines.length}
               icon={Activity}
-              accent="blue"
+              accent="violet"
+              sub="tracked"
+              busy={!stats && state.pipelines.length === 0}
             />
             <StatCard
-              label="Auto-Recovery"
-              value={summary ? `${summary.auto_recovery_pct}%` : '—'}
-              trend="↑ 5%"
-              trendDir="up"
+              label="Runs / 24h"
+              value={stats?.runs_last_24h ?? 0}
+              icon={Sparkles}
+              accent="lime"
+              busy={!stats}
+            />
+            <StatCard
+              label="Success rate"
+              value={`${stats?.success_rate_24h ?? 100}%`}
               icon={CheckCircle2}
-              accent="emerald"
+              accent={stats && stats.success_rate_24h < 80 ? "rose" : "lime"}
+              sub="last 24h"
+              busy={!stats}
             />
             <StatCard
-              label="Toil Saved"
-              value={summary ? `${summary.toil_saved_pct}%` : '—'}
-              trend="Saved"
-              trendDir="up"
-              icon={Zap}
-              accent="amber"
+              label="Failures"
+              value={stats?.failed_runs_24h ?? 0}
+              icon={AlertTriangle}
+              accent="rose"
+              sub={`${stats?.pending_analyses ?? 0} pending analysis`}
+              busy={!stats}
             />
           </div>
 
@@ -128,18 +150,38 @@ export function DashboardPage() {
                     MTTR & success rate · last 8h
                   </p>
                 </div>
-                <span className="text-[10px] text-[#6B7280] font-mono">8h window</span>
+                <span className="text-[10px] text-[#6B7280] font-mono">
+                  8h window
+                </span>
               </div>
               <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={healthMetrics}>
                     <defs>
-                      <linearGradient id="colorMttr" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.18} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      <linearGradient
+                        id="colorMttr"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#3b82f6"
+                          stopOpacity={0.18}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#3b82f6"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#F3F4F6"
+                    />
                     <XAxis
                       dataKey="time"
                       stroke="#9CA3AF"
@@ -157,11 +199,11 @@ export function DashboardPage() {
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: '#FFFFFF',
-                        border: '1px solid #E5E7EB',
+                        backgroundColor: "#FFFFFF",
+                        border: "1px solid #E5E7EB",
                         borderRadius: 4,
                         fontSize: 11,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
                       }}
                     />
                     <Area
@@ -183,12 +225,18 @@ export function DashboardPage() {
                 <h4 className="text-xs font-bold uppercase tracking-[0.18em] text-[#9CA3AF]">
                   Auto vs Human
                 </h4>
-                <span className="text-[10px] text-[#6B7280] font-mono">8h window</span>
+                <span className="text-[10px] text-[#6B7280] font-mono">
+                  8h window
+                </span>
               </div>
               <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={healthMetrics}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#F3F4F6"
+                    />
                     <XAxis
                       dataKey="time"
                       stroke="#9CA3AF"
@@ -206,8 +254,8 @@ export function DashboardPage() {
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: '#FFFFFF',
-                        border: '1px solid #E5E7EB',
+                        backgroundColor: "#FFFFFF",
+                        border: "1px solid #E5E7EB",
                         borderRadius: 4,
                         fontSize: 11,
                       }}
@@ -263,7 +311,7 @@ export function DashboardPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => navigate('/app/pipelines')}
+                  onClick={() => navigate("/app/pipelines")}
                   className="text-xs font-medium text-[#111827] hover:underline underline-offset-4"
                 >
                   Catalog →
@@ -279,11 +327,11 @@ export function DashboardPage() {
                     <div className="flex items-center gap-4">
                       <div
                         className={`w-8 h-8 rounded flex items-center justify-center ${
-                          pipeline.status === 'healthy'
-                            ? 'bg-emerald-50 text-emerald-600'
-                            : pipeline.status === 'degraded'
-                              ? 'bg-amber-50 text-amber-600'
-                              : 'bg-red-50 text-red-600'
+                          pipeline.status === "healthy"
+                            ? "bg-emerald-50 text-emerald-600"
+                            : pipeline.status === "degraded"
+                              ? "bg-amber-50 text-amber-600"
+                              : "bg-red-50 text-red-600"
                         }`}
                       >
                         <Database className="w-4 h-4" />
@@ -298,8 +346,10 @@ export function DashboardPage() {
                     <div className="flex items-center gap-4">
                       <div className="hidden sm:flex flex-col items-end">
                         <p className="text-xs font-semibold font-mono tabular-nums">
-                          {pipeline.throughput.toLocaleString()}{' '}
-                          <span className="text-[#9CA3AF] font-normal">msg/s</span>
+                          {pipeline.throughput.toLocaleString()}{" "}
+                          <span className="text-[#9CA3AF] font-normal">
+                            msg/s
+                          </span>
                         </p>
                         <p className="text-[10px] text-[#9CA3AF] font-mono">
                           p95 {pipeline.latency}ms
@@ -318,7 +368,9 @@ export function DashboardPage() {
                   <Brain className="w-4 h-4 text-blue-500" />
                   <h4 className="text-sm font-semibold">Agent Activity</h4>
                 </div>
-                <span className="text-[10px] text-[#6B7280] font-mono">live</span>
+                <span className="text-[10px] text-[#6B7280] font-mono">
+                  live
+                </span>
               </div>
               <div className="flex-1 p-3 max-h-[480px]">
                 <LiveLogStream logs={state.logs.slice(0, 40)} compact />
@@ -330,13 +382,15 @@ export function DashboardPage() {
           <div className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden flex flex-col">
             <div className="px-7 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-semibold">Incident Monitoring Loop</h4>
+                <h4 className="text-sm font-semibold">
+                  Incident Monitoring Loop
+                </h4>
                 <p className="text-[10px] text-[#9CA3AF] uppercase tracking-[0.18em] font-bold mt-1">
                   {openIncidents.length} open · {state.incidents.length} total
                 </p>
               </div>
               <button
-                onClick={() => navigate('/app/incidents')}
+                onClick={() => navigate("/app/incidents")}
                 className="text-xs font-medium text-[#111827] hover:underline underline-offset-4"
               >
                 Advanced Analysis →
@@ -375,7 +429,9 @@ export function DashboardPage() {
                             #{incident.id}
                           </span>
                         </td>
-                        <td className="px-7 py-5 font-medium">{incident.pipeline_name}</td>
+                        <td className="px-7 py-5 font-medium">
+                          {incident.pipeline_name}
+                        </td>
                         <td className="px-7 py-5">
                           <StatusBadge status={incident.status} />
                         </td>

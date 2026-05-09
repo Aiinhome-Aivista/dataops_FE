@@ -3,14 +3,25 @@ import { cn } from '../lib/utils';
 
 interface Props {
   label: string;
-  value: string;
+  value: string | number;
   trend?: string;
   trendDir?: 'up' | 'down' | 'flat';
   icon?: LucideIcon;
-  accent?: 'default' | 'blue' | 'amber' | 'emerald' | 'red';
+  accent?: 'default' | 'blue' | 'amber' | 'emerald' | 'red' | 'cyan' | 'violet' | 'lime' | 'rose';
+  sub?: string;
+  busy?: boolean;
 }
 
-export function StatCard({ label, value, trend, trendDir = 'flat', icon: Icon, accent = 'default' }: Props) {
+export function StatCard({
+  label,
+  value,
+  trend,
+  trendDir = 'flat',
+  icon: Icon,
+  accent = 'default',
+  sub,
+  busy,
+}: Props) {
   const trendColor =
     trendDir === 'up'
       ? 'text-emerald-600'
@@ -19,7 +30,7 @@ export function StatCard({ label, value, trend, trendDir = 'flat', icon: Icon, a
         : 'text-[#6B7280]';
 
   return (
-    <div className="bg-white border border-[#E5E7EB] p-6 rounded-lg hover:border-gray-300 transition-colors group">
+    <div className="bg-white border border-[#E5E7EB] p-6 rounded-lg hover:border-gray-300 transition-colors group relative overflow-hidden">
       <div className="flex items-start justify-between mb-3">
         <p className="text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
           {label}
@@ -32,6 +43,10 @@ export function StatCard({ label, value, trend, trendDir = 'flat', icon: Icon, a
               accent === 'amber' && 'border-amber-100 bg-amber-50 text-amber-600',
               accent === 'emerald' && 'border-emerald-100 bg-emerald-50 text-emerald-600',
               accent === 'red' && 'border-red-100 bg-red-50 text-red-600',
+              accent === 'cyan' && 'border-cyan-100 bg-cyan-50 text-cyan-600',
+              accent === 'violet' && 'border-violet-100 bg-violet-50 text-violet-600',
+              accent === 'lime' && 'border-lime-100 bg-lime-50 text-lime-600',
+              accent === 'rose' && 'border-rose-100 bg-rose-50 text-rose-600',
               accent === 'default' && 'border-gray-100 bg-gray-50 text-gray-600',
             )}
           >
@@ -39,15 +54,22 @@ export function StatCard({ label, value, trend, trendDir = 'flat', icon: Icon, a
           </div>
         )}
       </div>
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col">
         <h3 className="text-3xl font-light italic text-[#111827] tracking-tight tabular-nums">
           {value}
         </h3>
-        {trend && (
-          <span className={cn('text-[10px] font-bold uppercase tracking-tight', trendColor)}>
-            {trend}
-          </span>
-        )}
+        <div className="flex items-center justify-between mt-2">
+          {sub && (
+            <span className="text-[10px] text-[#9CA3AF] font-medium italic">
+              {sub}
+            </span>
+          )}
+          {trend && (
+            <span className={cn('text-[10px] font-bold uppercase tracking-tight', trendColor)}>
+              {trend}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

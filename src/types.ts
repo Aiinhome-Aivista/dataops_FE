@@ -168,6 +168,15 @@ export interface LogEntry {
   incident_id?: string | null;
 }
 
+export interface DashboardStats {
+  total_connectors: number;
+  total_pipelines: number;
+  runs_last_24h: number;
+  success_rate_24h: number;
+  failed_runs_24h: number;
+  pending_analyses: number;
+}
+
 export interface HealthMetric {
   time: string;
   mttd: number;

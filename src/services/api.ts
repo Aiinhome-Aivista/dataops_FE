@@ -3,6 +3,7 @@ import type {
   Connector,
   ConnectorDetail,
   ConnectorType,
+  DashboardStats,
   HealthMetric,
   Incident,
   LogEntry,
@@ -164,6 +165,7 @@ export const api = {
 
   metricsHealth: () => req<HealthMetric[]>("/metrics/health"),
   metricsSummary: () => req<MetricsSummary>("/metrics/summary"),
+  stats: () => req<DashboardStats>("/dashboard/stats"),
 };
 
 export function wsUrl(): string {
