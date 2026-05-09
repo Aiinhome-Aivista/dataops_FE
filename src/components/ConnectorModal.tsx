@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Database, GitBranch, Workflow, X, Plus, TestTube2, Trash2, ChevronLeft, PlayCircle } from 'lucide-react';
+import { Database, GitBranch, Workflow, X, Plus, TestTube2, Trash2, ChevronLeft, PlayCircle, Pencil } from 'lucide-react';
+import { timeAgo } from '../lib/utils';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
@@ -43,10 +44,13 @@ const EMPTY_CREDS: CredMap = {
 };
 
 const STATUS_DOT: Record<string, string> = {
-  connected:      'bg-emerald-500',
-  error:          'bg-red-500',
+  CONNECTED: 'bg-emerald-500',
+  ERROR: 'bg-red-500',
+  PENDING: 'bg-amber-500',
+  connected: 'bg-emerald-500',
+  error: 'bg-red-500',
   not_configured: 'bg-gray-400',
-  pending:        'bg-amber-500',
+  pending: 'bg-amber-500',
 };
 
 // ─── Icon component ───────────────────────────────────────────────────────────
@@ -207,63 +211,68 @@ function ListView({
         </p>
       )}
 
-      <div className="space-y-2">
-        {connectors.map(conn => {
-          const dot = STATUS_DOT[conn.status] || 'bg-gray-400';
+      <div className="space-y-3">
+        {connectors.map((conn) => {
+          const dot = STATUS_DOT[conn.status.toUpperCase()] || "bg-gray-400";
           const tr = testResults[conn.id];
           return (
             <div
               key={conn.id}
-              className="flex items-start justify-between gap-3 px-4 py-3 border border-[#E5E7EB] rounded-lg bg-white"
+              className="flex items-center justify-between gap-3 px-4 py-4 border border-[#E5E7EB] rounded-xl bg-white shadow-sm hover:border-gray-300 transition-all"
             >
-              <div className="flex items-start gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-lg bg-[#F3F4F6] flex items-center justify-center shrink-0">
-                  <ConnectorIcon type={conn.type} size={16} />
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <div className="w-11 h-11 rounded-lg bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-center shrink-0">
+                  <ConnectorIcon type={conn.type} size={20} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-[#111827] truncate">{conn.name}</p>
-                  <p className="text-[11px] text-[#6B7280] truncate">
-                    {conn.type}{conn.description ? ` · ${conn.description}` : ''}
+                  <p className="text-[15px] font-bold text-[#111827] tracking-tight truncate">
+                    {conn.name}
                   </p>
-                  {conn.last_error && (
-                    <p className="text-[11px] text-red-600 mt-1 break-words">{conn.last_error}</p>
-                  )}
-                  {tr && tr.status !== 'connected' && (
-                    <p className="text-[11px] text-amber-700 mt-1 break-words">{tr.detail}</p>
-                  )}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest">
+                      {conn.type}
+                    </span>
+                    {conn.last_synced_at && (
+                      <span className="text-[10px] text-[#9CA3AF] font-medium italic">
+                        • Synced {timeAgo(conn.last_synced_at)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-                  <span className="text-[11px] text-[#6B7280] capitalize">
-                    {conn.status.replace('_', ' ')}
+
+              <div className="flex items-center gap-6 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${dot}`} />
+                  <span className="text-[11px] font-black text-[#6B7280] uppercase tracking-widest">
+                    {conn.status}
                   </span>
                 </div>
-                <button
-                  onClick={() => onViewPipelines(conn)}
-                  disabled={busy === conn.id}
-                  title="View Pipelines"
-                  className="p-1.5 rounded-md hover:bg-[#F3F4F6] text-blue-600 disabled:opacity-50"
-                >
-                  <PlayCircle className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => onTest(conn)}
-                  disabled={busy === conn.id}
-                  title="Test connection"
-                  className="p-1.5 rounded-md hover:bg-[#F3F4F6] text-[#374151] disabled:opacity-50"
-                >
-                  <TestTube2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => onDelete(conn)}
-                  disabled={busy === conn.id}
-                  title="Delete"
-                  className="p-1.5 rounded-md hover:bg-red-50 text-red-500 disabled:opacity-50"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+
+                {/* 
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onViewPipelines(conn)}
+                    className="p-1.5 rounded-md text-[#9CA3AF] hover:text-[#111827] transition-colors"
+                    title="Edit configuration"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => onTest(conn)}
+                    className="px-3 py-1.5 border border-[#E5E7EB] rounded-md text-xs font-bold text-[#4B5563] hover:bg-[#F9FAFB] transition-all"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => onDelete(conn)}
+                    disabled={busy === conn.id}
+                    className="p-1.5 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 transition-all disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                */}
               </div>
             </div>
           );

@@ -39,17 +39,18 @@ export function DashboardPage() {
   const [showModal, setShowModal] = useState(false);
 
   const reload = async () => {
+    // Fetch connectors independently so they show even if metrics fail
+    api.connectors().then(setConnectors).catch(e => console.error("Connectors fetch failed", e));
+
     try {
-      const [hm, sm, conn] = await Promise.all([
+      const [hm, sm] = await Promise.all([
         api.metricsHealth(),
         api.metricsSummary(),
-        api.connectors(),
       ]);
       setHealthMetrics(hm);
       setSummary(sm);
-      setConnectors(conn);
     } catch {
-      /* ignore */
+      /* ignore metrics failures */
     }
   };
 
