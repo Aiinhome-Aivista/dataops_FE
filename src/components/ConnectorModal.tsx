@@ -294,13 +294,11 @@ function NewConnectorForm({ onSaved, onError }: { onSaved: () => void; onError: 
     setBusy(true);
     onError('');
     try {
-      const opt = TYPE_OPTIONS.find(o => o.value === type)!;
-      const { type: _t, ...config } = creds as any;
-      await api.upsertConnector({ type_id: opt.typeId, name, config });
+      const created = await api.upsertConnector({ type, name, credentials: creds });
       // Auto-test
       setTesting(true);
       try {
-        const r = await api.testConnector(opt.typeId);
+        const r = await api.testConnector(created.id);
         if (r.status === 'connected') {
           // success — handled silently, UI will refresh
         }
