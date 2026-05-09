@@ -64,22 +64,27 @@ export function StatusBadge({
   );
 }
 
-export function PipelineStatusBadge({ status }: { status: PipelineStatus }) {
+export function PipelineStatusBadge({ status }: { status: string }) {
+  const s = status.toLowerCase();
   const styles =
-    status === 'healthy'
-      ? 'bg-emerald-50 text-emerald-700'
-      : status === 'degraded'
-        ? 'bg-amber-50 text-amber-700'
-        : status === 'unhealthy'
-          ? 'bg-red-50 text-red-700'
-          : 'bg-gray-50 text-gray-700';
+    s === 'healthy'
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+      : s === 'degraded'
+        ? 'bg-amber-50 text-amber-700 border-amber-100'
+        : (s === 'unhealthy' || s === 'failed')
+          ? 'bg-red-50 text-red-700 border-red-100'
+          : 'bg-gray-50 text-gray-700 border-gray-100';
+          
   return (
     <span
       className={cn(
-        'px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-[0.15em]',
+        'px-2 py-0.5 rounded border text-[9px] font-bold uppercase tracking-[0.15em] inline-flex items-center gap-1',
         styles,
       )}
     >
+      {(s === 'unhealthy' || s === 'failed') && (
+        <span className="w-1 h-1 rounded-full bg-current animate-pulse" />
+      )}
       {status}
     </span>
   );

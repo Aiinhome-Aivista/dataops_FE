@@ -114,20 +114,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Bootstrap REST
   const bootstrap = async () => {
-    try {
-      const [pipelines, incidents, agents, healthInfo] = await Promise.all([
-        api.pipelines(),
-        api.incidents(),
-        api.agents(),
-        api.health(),
-      ]);
-      dispatch({
-        type: 'snapshot',
-        payload: { pipelines, incidents, agents, simulating: false },
-      });
-    } catch (e) {
-      console.warn('Bootstrap failed', e);
-    }
+    // Fetch each independently to prevent one 404 from breaking the whole app
+    api.pipelines()
+      .then(pipelines => dispatch({ type: 'pipelines', payload: pipelines }))
+      .catch(e => console.warn('Pipelines fetch failed', e));
+
+    api.incidents()
+      .then(incidents => {
+        // Handle incidents list
+        incidents.forEach(incident => dispatch({ type: 'incident', payload: incident }));
+      })
+      .catch(e => console.warn('Incidents fetch failed', e));
+
+    api.agents()
+      .then(agents => dispatch({ type: 'agents', payload: agents }))
+      .catch(e => console.warn('Agents fetch failed', e));
   };
 
   // WebSocket lifecycle
