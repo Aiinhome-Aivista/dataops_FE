@@ -1,30 +1,42 @@
-import { useEffect, useState } from 'react';
-import { Plus, TestTube2, RotateCw, PlayCircle, Trash2, Database, Workflow, GitBranch } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Header } from '../components/Header';
-import { ConnectorModal } from '../components/ConnectorModal';
-import { api } from '../services/api';
-import type { Connector } from '../types';
-import { cn, timeAgo } from '../lib/utils';
+import { useEffect, useState } from "react";
+import {
+  Plus,
+  TestTube2,
+  RotateCw,
+  PlayCircle,
+  Trash2,
+  Database,
+  Workflow,
+  GitBranch,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Header } from "../components/Header";
+import { ConnectorModal } from "../components/ConnectorModal";
+import { api } from "../services/api";
+import type { Connector } from "../types";
+import { cn, timeAgo } from "../lib/utils";
 
 const TYPE_BADGE: Record<string, string> = {
-  Orchestrator: 'bg-blue-50 text-blue-700 border-blue-100',
-  Monitoring: 'bg-purple-50 text-purple-700 border-purple-100',
-  Logs: 'bg-amber-50 text-amber-700 border-amber-100',
-  Ticketing: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  Communication: 'bg-pink-50 text-pink-700 border-pink-100',
-  Git: 'bg-gray-50 text-gray-700 border-gray-100',
-  Runtime: 'bg-indigo-50 text-indigo-700 border-indigo-100',
-  Cloud: 'bg-sky-50 text-sky-700 border-sky-100',
+  Orchestrator: "bg-blue-50 text-blue-700 border-blue-100",
+  Monitoring: "bg-purple-50 text-purple-700 border-purple-100",
+  Logs: "bg-amber-50 text-amber-700 border-amber-100",
+  Ticketing: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  Communication: "bg-pink-50 text-pink-700 border-pink-100",
+  Git: "bg-gray-50 text-gray-700 border-gray-100",
+  Runtime: "bg-indigo-50 text-indigo-700 border-indigo-100",
+  Cloud: "bg-sky-50 text-sky-700 border-sky-100",
 };
 
 function ConnectorIcon({ type, size = 16 }: { type: string; size?: number }) {
   const cfg: Record<string, { icon: React.ElementType; color: string }> = {
-    ADF:        { icon: Workflow,  color: 'text-sky-600'    },
-    DATABRICKS: { icon: Database,  color: 'text-amber-600'  },
-    GIT:        { icon: GitBranch, color: 'text-violet-600' },
+    ADF: { icon: Workflow, color: "text-sky-600" },
+    DATABRICKS: { icon: Database, color: "text-amber-600" },
+    GIT: { icon: GitBranch, color: "text-violet-600" },
   };
-  const { icon: Icon, color } = cfg[type] || { icon: Database, color: 'text-gray-400' };
+  const { icon: Icon, color } = cfg[type] || {
+    icon: Database,
+    color: "text-gray-400",
+  };
   return <Icon size={size} className={color} strokeWidth={2.25} />;
 }
 
@@ -42,7 +54,7 @@ export function ConnectorsPage() {
   }, []);
 
   const handleTest = async (id: string) => {
-    setBusy(id + '-test');
+    setBusy(id + "-test");
     try {
       await api.testConnector(id);
       await reload();
@@ -54,7 +66,7 @@ export function ConnectorsPage() {
   };
 
   const handleSync = async (id: string) => {
-    setBusy(id + '-sync');
+    setBusy(id + "-sync");
     try {
       await api.syncConnector(id);
       await reload();
@@ -66,8 +78,8 @@ export function ConnectorsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this connector?')) return;
-    setBusy(id + '-delete');
+    if (!window.confirm("Delete this connector?")) return;
+    setBusy(id + "-delete");
     try {
       await api.deleteConnector(id);
       await reload();
@@ -91,7 +103,10 @@ export function ConnectorsPage() {
         subtitle="External systems · orchestrators, telemetry, ticketing"
         actions={
           <button
-            onClick={() => { setOpenOnNew(true); setOpen(true); }}
+            onClick={() => {
+              setOpenOnNew(true);
+              setOpen(true);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-[#111827] text-white hover:bg-black text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -106,12 +121,18 @@ export function ConnectorsPage() {
             <Counter label="Total" value={connectors.length} />
             <Counter
               label="Connected"
-              value={connectors.filter((c) => c.status.toUpperCase() === 'CONNECTED').length}
+              value={
+                connectors.filter((c) => c.status.toUpperCase() === "CONNECTED")
+                  .length
+              }
               accent="text-emerald-600"
             />
             <Counter
               label="Errored"
-              value={connectors.filter((c) => c.status.toUpperCase() === 'ERROR').length}
+              value={
+                connectors.filter((c) => c.status.toUpperCase() === "ERROR")
+                  .length
+              }
               accent="text-red-600"
             />
             <Counter
@@ -130,9 +151,9 @@ export function ConnectorsPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {list.map((c) => {
-                  const isSyncing = busy === c.id + '-sync';
-                  const isTesting = busy === c.id + '-test';
-                  const isDeleting = busy === c.id + '-delete';
+                  const isSyncing = busy === c.id + "-sync";
+                  const isTesting = busy === c.id + "-test";
+                  const isDeleting = busy === c.id + "-delete";
 
                   return (
                     <div
@@ -141,25 +162,34 @@ export function ConnectorsPage() {
                     >
                       <div className="flex items-start justify-between mb-6">
                         <div>
-                          <p className="text-sm font-black text-[#111827] tracking-tight">{c.name}</p>
-                          <div className={cn(
-                            "mt-2 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest inline-block border",
-                            TYPE_BADGE[c.type] || 'bg-gray-50 text-gray-400 border-gray-100'
-                          )}>
+                          <p className="text-sm font-black text-[#111827] tracking-tight">
+                            {c.name}
+                          </p>
+                          <div
+                            className={cn(
+                              "mt-2 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest inline-block border",
+                              TYPE_BADGE[c.type] ||
+                                "bg-gray-50 text-gray-400 border-gray-100",
+                            )}
+                          >
                             {c.type}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <div
                             className={cn(
-                              'w-2 h-2 rounded-full',
-                              c.status.toUpperCase() === 'CONNECTED' ? 'bg-emerald-500' : 'bg-red-500',
+                              "w-2 h-2 rounded-full",
+                              c.status.toUpperCase() === "CONNECTED"
+                                ? "bg-emerald-500"
+                                : "bg-red-500",
                             )}
                           />
                           <span
                             className={cn(
-                              'text-[10px] uppercase tracking-widest font-black',
-                              c.status.toUpperCase() === 'CONNECTED' ? 'text-emerald-600' : 'text-red-600',
+                              "text-[10px] uppercase tracking-widest font-black",
+                              c.status.toUpperCase() === "CONNECTED"
+                                ? "text-emerald-600"
+                                : "text-red-600",
                             )}
                           >
                             {c.status}
@@ -168,14 +198,16 @@ export function ConnectorsPage() {
                       </div>
 
                       {/* Sync info / Description (subtle) */}
-                      <div className="mb-8 min-h-[32px]">
+                      <div className="mb-1 min-h-[32px]">
                         <p className="text-[10px] text-[#9CA3AF] font-medium italic">
-                          {c.last_synced_at ? `Synced ${timeAgo(c.last_synced_at)}` : 'Never synced'}
+                          {c.last_synced_at
+                            ? `Synced about ${timeAgo(c.last_synced_at)} ago`
+                            : "Never synced"}
                         </p>
                       </div>
 
                       {/* Actions - matching A2 functionality */}
-                      <div className="flex items-center justify-between pt-5 border-t border-[#F3F4F6]">
+                      <div className="flex items-center justify-between pt-1 border-t border-[#F3F4F6]">
                         <div className="flex items-center gap-1">
                           <ActionButton
                             icon={TestTube2}
@@ -194,7 +226,9 @@ export function ConnectorsPage() {
                           <ActionButton
                             icon={PlayCircle}
                             label="Pipelines"
-                            onClick={() => navigate(`/app/pipelines?connector_id=${c.id}`)}
+                            onClick={() =>
+                              navigate(`/app/pipelines?connector_id=${c.id}`)
+                            }
                             disabled={!!busy}
                           />
                         </div>
@@ -216,10 +250,13 @@ export function ConnectorsPage() {
       </main>
       <ConnectorModal
         open={open}
-        onClose={() => { setOpen(false); setOpenOnNew(false); }}
+        onClose={() => {
+          setOpen(false);
+          setOpenOnNew(false);
+        }}
         connectors={connectors}
         onChange={reload}
-        initialView={openOnNew ? 'new' : 'list'}
+        initialView={openOnNew ? "new" : "list"}
       />
     </>
   );
@@ -244,10 +281,13 @@ function ActionButton({
       disabled={disabled}
       className={cn(
         "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-[#4B5563] hover:bg-[#F9FAFB] hover:text-[#111827] transition-all disabled:opacity-50",
-        busy && "animate-pulse"
+        busy && "animate-pulse",
       )}
     >
-      <Icon className={cn("w-3.5 h-3.5", busy && "animate-spin")} strokeWidth={2.5} />
+      <Icon
+        className={cn("w-3.5 h-3.5", busy && "animate-spin")}
+        strokeWidth={2.5}
+      />
       {label}
     </button>
   );
@@ -256,7 +296,7 @@ function ActionButton({
 function Counter({
   label,
   value,
-  accent = 'text-[#111827]',
+  accent = "text-[#111827]",
 }: {
   label: string;
   value: number;
@@ -264,9 +304,12 @@ function Counter({
 }) {
   return (
     <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-      <p className="text-[10px] uppercase tracking-[0.2em] font-black text-[#9CA3AF]">{label}</p>
-      <p className={cn('text-2xl font-light italic mt-2 tabular-nums', accent)}>{value}</p>
+      <p className="text-[10px] uppercase tracking-[0.2em] font-black text-[#9CA3AF]">
+        {label}
+      </p>
+      <p className={cn("text-2xl font-light italic mt-2 tabular-nums", accent)}>
+        {value}
+      </p>
     </div>
   );
 }
-
