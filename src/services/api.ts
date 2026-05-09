@@ -60,7 +60,10 @@ export const api = {
   me: () => req<{ id: string; email: string; is_admin: boolean }>("/auth/me"),
   health: () => req<{ status: string; env: string; llm: string }>("/health"),
 
-  pipelines: () => req<Pipeline[]>("/pipelines"),
+  pipelines: (params?: { connector_id?: string | number }) => {
+    const q = params?.connector_id ? `?connector_id=${params.connector_id}` : '';
+    return req<Pipeline[]>(`/pipelines${q}`);
+  },
   pipeline: (id: string) => req<Pipeline>(`/pipelines/${id}`),
 
   incidents: () => req<Incident[]>("/incidents"),
@@ -136,6 +139,10 @@ export const api = {
     }),
   testConnector: (id: string) =>
     req<{ status: string; detail: string }>(`/connectors/${id}/test`, {
+      method: "POST",
+    }),
+  syncConnector: (id: string) =>
+    req<{ queued: boolean; stats: any }>(`/connectors/${id}/sync`, {
       method: "POST",
     }),
   tools: () => req<ToolSpec[]>("/tools"),

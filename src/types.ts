@@ -114,8 +114,8 @@ export interface Connector {
   id: string;
   name: string;
   type: ConnectorTypeId | string;
-  status: 'connected' | 'error' | 'pending' | 'not_configured';
-  last_sync: string | null;
+  status: 'CONNECTED' | 'ERROR' | 'PENDING' | 'NOT_CONFIGURED' | string;
+  last_synced_at: string | null;
   last_error?: string | null;
   description?: string;
 }

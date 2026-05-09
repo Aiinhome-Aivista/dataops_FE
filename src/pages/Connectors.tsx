@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, TestTube2, RotateCw, PlayCircle, Trash2, Database, Workflow, GitBranch } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { ConnectorModal } from '../components/ConnectorModal';
 import { api } from '../services/api';
 import type { Connector } from '../types';
-import { cn } from '../lib/utils';
+import { cn, timeAgo } from '../lib/utils';
 
 const TYPE_BADGE: Record<string, string> = {
   Orchestrator: 'bg-blue-50 text-blue-700 border-blue-100',
@@ -17,16 +18,65 @@ const TYPE_BADGE: Record<string, string> = {
   Cloud: 'bg-sky-50 text-sky-700 border-sky-100',
 };
 
+function ConnectorIcon({ type, size = 16 }: { type: string; size?: number }) {
+  const cfg: Record<string, { icon: React.ElementType; color: string }> = {
+    ADF:        { icon: Workflow,  color: 'text-sky-600'    },
+    DATABRICKS: { icon: Database,  color: 'text-amber-600'  },
+    GIT:        { icon: GitBranch, color: 'text-violet-600' },
+  };
+  const { icon: Icon, color } = cfg[type] || { icon: Database, color: 'text-gray-400' };
+  return <Icon size={size} className={color} strokeWidth={2.25} />;
+}
+
 export function ConnectorsPage() {
+  const navigate = useNavigate();
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [open, setOpen] = useState(false);
   const [openOnNew, setOpenOnNew] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const reload = async () => setConnectors(await api.connectors());
 
   useEffect(() => {
     reload();
   }, []);
+
+  const handleTest = async (id: string) => {
+    setBusy(id + '-test');
+    try {
+      await api.testConnector(id);
+      await reload();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleSync = async (id: string) => {
+    setBusy(id + '-sync');
+    try {
+      await api.syncConnector(id);
+      await reload();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this connector?')) return;
+    setBusy(id + '-delete');
+    try {
+      await api.deleteConnector(id);
+      await reload();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const grouped = connectors.reduce<Record<string, Connector[]>>((acc, c) => {
     acc[c.type] = acc[c.type] || [];
@@ -42,25 +92,26 @@ export function ConnectorsPage() {
         actions={
           <button
             onClick={() => { setOpenOnNew(true); setOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#111827] text-white hover:bg-black text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-[#111827] text-white hover:bg-black text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm"
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-3.5 h-3.5" />
             Add Connector
           </button>
         }
       />
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-6xl mx-auto space-y-10">
+          {/* Counters */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Counter label="Total" value={connectors.length} />
             <Counter
               label="Connected"
-              value={connectors.filter((c) => c.status === 'connected').length}
+              value={connectors.filter((c) => c.status.toUpperCase() === 'CONNECTED').length}
               accent="text-emerald-600"
             />
             <Counter
               label="Errored"
-              value={connectors.filter((c) => c.status === 'error').length}
+              value={connectors.filter((c) => c.status.toUpperCase() === 'ERROR').length}
               accent="text-red-600"
             />
             <Counter
@@ -70,58 +121,94 @@ export function ConnectorsPage() {
             />
           </div>
 
+          {/* List by Type */}
           {Object.entries(grouped).map(([type, list]) => (
             <section key={type}>
-              <h3 className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF] mb-3">
-                {type} · {list.length}
+              <h3 className="text-[10px] uppercase tracking-[0.2em] font-black text-[#9CA3AF] mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#E5E7EB]" />
+                {type} — {list.length}
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {list.map((c) => (
-                  <div
-                    key={c.id}
-                    className="bg-white border border-[#E5E7EB] rounded-lg p-5 hover:border-gray-300 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="text-sm font-semibold">{c.name}</p>
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold mt-1">
-                          {c.last_sync}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {list.map((c) => {
+                  const isSyncing = busy === c.id + '-sync';
+                  const isTesting = busy === c.id + '-test';
+                  const isDeleting = busy === c.id + '-delete';
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="group bg-white border border-[#E5E7EB] rounded-xl p-6 hover:border-gray-300 hover:shadow-lg transition-all duration-300"
+                    >
+                      <div className="flex items-start justify-between mb-6">
+                        <div>
+                          <p className="text-sm font-black text-[#111827] tracking-tight">{c.name}</p>
+                          <div className={cn(
+                            "mt-2 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest inline-block border",
+                            TYPE_BADGE[c.type] || 'bg-gray-50 text-gray-400 border-gray-100'
+                          )}>
+                            {c.type}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              'w-2 h-2 rounded-full',
+                              c.status.toUpperCase() === 'CONNECTED' ? 'bg-emerald-500' : 'bg-red-500',
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              'text-[10px] uppercase tracking-widest font-black',
+                              c.status.toUpperCase() === 'CONNECTED' ? 'text-emerald-600' : 'text-red-600',
+                            )}
+                          >
+                            {c.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Sync info / Description (subtle) */}
+                      <div className="mb-8 min-h-[32px]">
+                        <p className="text-[10px] text-[#9CA3AF] font-medium italic">
+                          {c.last_synced_at ? `Synced ${timeAgo(c.last_synced_at)}` : 'Never synced'}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={cn(
-                            'w-1.5 h-1.5 rounded-full',
-                            c.status === 'connected' ? 'bg-emerald-500' : 'bg-red-500',
-                          )}
-                        />
-                        <span
-                          className={cn(
-                            'text-[9px] uppercase tracking-[0.15em] font-bold',
-                            c.status === 'connected' ? 'text-emerald-700' : 'text-red-700',
-                          )}
+
+                      {/* Actions - matching A2 functionality */}
+                      <div className="flex items-center justify-between pt-5 border-t border-[#F3F4F6]">
+                        <div className="flex items-center gap-1">
+                          <ActionButton
+                            icon={TestTube2}
+                            label="Test"
+                            onClick={() => handleTest(c.id)}
+                            busy={isTesting}
+                            disabled={!!busy}
+                          />
+                          <ActionButton
+                            icon={RotateCw}
+                            label="Sync"
+                            onClick={() => handleSync(c.id)}
+                            busy={isSyncing}
+                            disabled={!!busy}
+                          />
+                          <ActionButton
+                            icon={PlayCircle}
+                            label="Pipelines"
+                            onClick={() => navigate(`/app/pipelines?connector_id=${c.id}`)}
+                            disabled={!!busy}
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleDelete(c.id)}
+                          disabled={!!busy}
+                          className="p-2 rounded-lg text-[#9CA3AF] hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0"
                         >
-                          {c.status}
-                        </span>
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={cn(
-                          'text-[9px] uppercase font-bold tracking-[0.15em] px-2 py-0.5 rounded border',
-                          TYPE_BADGE[c.type] || 'bg-gray-50 text-gray-700 border-gray-100',
-                        )}
-                      >
-                        {c.type}
-                      </span>
-                      {c.description && (
-                        <span className="text-[10px] text-[#9CA3AF] truncate max-w-[180px]">
-                          {c.description}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           ))}
@@ -138,6 +225,34 @@ export function ConnectorsPage() {
   );
 }
 
+function ActionButton({
+  icon: Icon,
+  label,
+  onClick,
+  busy,
+  disabled,
+}: {
+  icon: any;
+  label: string;
+  onClick: () => void;
+  busy?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-[#4B5563] hover:bg-[#F9FAFB] hover:text-[#111827] transition-all disabled:opacity-50",
+        busy && "animate-pulse"
+      )}
+    >
+      <Icon className={cn("w-3.5 h-3.5", busy && "animate-spin")} strokeWidth={2.5} />
+      {label}
+    </button>
+  );
+}
+
 function Counter({
   label,
   value,
@@ -148,9 +263,10 @@ function Counter({
   accent?: string;
 }) {
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-lg p-5">
-      <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF]">{label}</p>
-      <p className={cn('text-2xl font-light italic mt-1 tabular-nums', accent)}>{value}</p>
+    <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+      <p className="text-[10px] uppercase tracking-[0.2em] font-black text-[#9CA3AF]">{label}</p>
+      <p className={cn('text-2xl font-light italic mt-2 tabular-nums', accent)}>{value}</p>
     </div>
   );
 }
+

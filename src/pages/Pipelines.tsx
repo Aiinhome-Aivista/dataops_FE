@@ -9,34 +9,54 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ArrowLeft, Calendar, Database, Tag, User, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Database, Tag, User, X, RotateCw, Workflow, PlayCircle } from 'lucide-react';
 import { Header } from '../components/Header';
 import { PipelineDAG } from '../components/PipelineDAG';
 import { PipelineStatusBadge } from '../components/Badges';
 import { useStore } from '../hooks/useStore';
+import { api } from '../services/api';
 import { cn } from '../lib/utils';
 import type { Pipeline } from '../types';
 
 export function PipelinesPage() {
-  const { state } = useStore();
+  const { state, refresh } = useStore();
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<'all' | 'tier-1' | 'tier-2' | 'unhealthy'>('all');
+  const [filter, setFilter] = useState<'ALL' | 'SUCCEEDED' | 'FAILED' | 'RUNNING' | 'QUEUED' | 'CANCELLED'>('ALL');
+  const [search, setSearch] = useState('');
+  const [localPipelines, setLocalPipelines] = useState<Pipeline[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const connectorId = searchParams.get('connector_id');
 
-  const filtered = useMemo(() => {
-    let list = state.pipelines;
-    if (connectorId) {
-      list = list.filter((p) => String(p.connector_id) === connectorId);
-    }
-    if (filter === 'all') return list;
-    if (filter === 'unhealthy') return list.filter((p) => p.status !== 'healthy');
-    return list.filter((p) => p.tags.includes(filter));
-  }, [state.pipelines, filter, connectorId]);
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await api.pipelines(connectorId ? { connector_id: connectorId } : {});
+        setLocalPipelines(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [connectorId]);
 
-  const selected = id ? state.pipelines.find((p) => p.id === id) : null;
+  const filtered = useMemo(() => {
+    let list = localPipelines.length > 0 || connectorId ? localPipelines : state.pipelines;
+    if (search) {
+      list = list.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+    }
+    if (filter === 'ALL') return list;
+    if (filter === 'SUCCEEDED') return list.filter((p) => p.status === 'healthy');
+    if (filter === 'FAILED') return list.filter((p) => p.status !== 'healthy');
+    return list;
+  }, [state.pipelines, localPipelines, filter, connectorId, search]);
+
+  const selected = id ? (localPipelines.find(p => p.id === id) || state.pipelines.find((p) => p.id === id)) : null;
 
   if (selected) {
     return <PipelineDetail pipeline={selected} onBack={() => navigate('/app/pipelines')} />;
@@ -45,50 +65,113 @@ export function PipelinesPage() {
   return (
     <>
       <Header
-        title="Pipeline Catalog"
-        subtitle="Topology · schedules · live telemetry"
+        title="Pipelines"
+        subtitle="Synced from connected accounts"
+        actions={
+          <button 
+            onClick={refresh}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm"
+          >
+            <RotateCw className="w-3 h-3 text-[#6B7280]" />
+            Refresh
+          </button>
+        }
       />
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="flex items-center gap-2 flex-wrap">
-            {[
-              { id: 'all', label: 'All' },
-              { id: 'tier-1', label: 'Tier 1' },
-              { id: 'tier-2', label: 'Tier 2' },
-              { id: 'unhealthy', label: 'Unhealthy' },
-            ].map((f) => (
-            <button
-              onClick={() => setFilter(f.id as any)}
-              className={cn(
-                'px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] rounded border transition-all',
-                filter === f.id
-                  ? 'bg-[#111827] text-white border-[#111827]'
-                  : 'bg-white text-[#6B7280] border-[#E5E7EB] hover:border-gray-300',
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Filters & Search */}
+          <div className="flex items-center gap-4 bg-white border border-[#E5E7EB] p-3 rounded-lg shadow-sm">
+            <div className="relative flex-1">
+              <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm bg-[#F9FAFB] border-none rounded-md focus:ring-1 focus:ring-gray-300 outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              {['ALL', 'SUCCEEDED', 'FAILED', 'RUNNING', 'QUEUED', 'CANCELLED'].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f as any)}
+                  className={cn(
+                    'px-3 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-md transition-all',
+                    filter === f
+                      ? 'bg-[#111827] text-white'
+                      : 'text-[#6B7280] hover:bg-[#F3F4F6]'
+                  )}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {connectorId && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700">
-              Filtered by Connector
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-lg text-[10px] font-bold uppercase tracking-widest text-blue-700 w-fit">
+              <Tag className="w-3.5 h-3.5" />
+              Filtered by Connector ID: {connectorId}
               <button
                 onClick={() => setSearchParams({})}
-                className="ml-1 text-blue-400 hover:text-blue-600"
+                className="ml-2 hover:text-blue-900"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
-          <span className="ml-auto text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
-            {filtered.length} matches
-          </span>
-        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filtered.map((p) => (
-              <PipelineCard key={p.id} pipeline={p} onClick={() => navigate(`/pipelines/${p.id}`)} />
-            ))}
+          {/* Table View */}
+          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Pipeline</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Source</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Last Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Last Run</th>
+                  <th className="px-6 py-4 text-right"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F3F4F6]">
+                {filtered.map((p) => (
+                  <tr key={p.id} className="hover:bg-[#F9FAFB] transition-colors group">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-[#111827]">{p.name}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Workflow className="w-3.5 h-3.5 text-sky-600" />
+                        <span className="text-[11px] font-bold text-[#4B5563]">ID: {p.connector_id}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="inline-flex items-center gap-2 px-2 py-1 rounded border border-[#E5E7EB] bg-white">
+                        <div className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          p.status === 'healthy' ? "bg-emerald-500" : "bg-red-500"
+                        )} />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[#4B5563]">
+                          {p.status === 'healthy' ? 'SUCCEEDED' : 'FAILED'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-[11px] font-medium text-[#9CA3AF]">
+                      {p.last_run || 'never'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => navigate(`/app/pipelines/${p.id}`)}
+                        className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] hover:text-[#111827] inline-flex items-center gap-1 transition-all"
+                      >
+                        view <PlayCircle className="w-3 h-3" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </main>
@@ -96,73 +179,7 @@ export function PipelinesPage() {
   );
 }
 
-function PipelineCard({ pipeline, onClick }: { pipeline: Pipeline; onClick: () => void }) {
-  const last = pipeline.resource_metrics.slice(-12);
-  return (
-    <button
-      onClick={onClick}
-      className="bg-white border border-[#E5E7EB] rounded-lg p-6 hover:border-gray-300 hover:shadow-sm transition-all text-left group"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold truncate">{pipeline.name}</h3>
-          <p className="text-[10px] text-[#9CA3AF] uppercase tracking-[0.18em] font-bold mt-1">
-            {pipeline.owner}
-          </p>
-        </div>
-        <PipelineStatusBadge status={pipeline.status} />
-      </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <Metric label="Throughput" value={pipeline.throughput.toLocaleString()} unit="msg/s" />
-        <Metric label="Latency" value={String(pipeline.latency)} unit="ms" />
-        <Metric label="SLA" value={String(pipeline.sla_minutes)} unit="min" />
-      </div>
-
-      <div className="h-[60px] mb-4">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={last}>
-            <defs>
-              <linearGradient id={`mg-${pipeline.id}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <Area
-              type="monotone"
-              dataKey="cpu"
-              stroke="#3b82f6"
-              strokeWidth={1.2}
-              fill={`url(#mg-${pipeline.id})`}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        {pipeline.tags.map((t) => (
-          <span key={t} className="tag-chip">
-            {t}
-          </span>
-        ))}
-        <span className="ml-auto text-[10px] font-mono text-[#9CA3AF]">
-          {pipeline.schedule}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-function Metric({ label, value, unit }: { label: string; value: string; unit: string }) {
-  return (
-    <div>
-      <p className="text-[9px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">{label}</p>
-      <p className="text-base font-light italic mt-1 tabular-nums">
-        {value} <span className="text-[10px] text-[#9CA3AF] not-italic font-mono">{unit}</span>
-      </p>
-    </div>
-  );
-}
 
 function PipelineDetail({ pipeline, onBack }: { pipeline: Pipeline; onBack: () => void }) {
   const { state } = useStore();
