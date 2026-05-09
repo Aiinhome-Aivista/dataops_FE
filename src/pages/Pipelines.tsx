@@ -70,7 +70,7 @@ export function PipelinesPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filtered.map((p) => (
-              <PipelineCard key={p.id} pipeline={p} onClick={() => navigate(`/pipelines/${p.id}`)} />
+              <PipelineCard key={p.id} pipeline={p} onClick={() => navigate(`/app/pipelines/${p.id}`)} />
             ))}
           </div>
         </div>
@@ -103,7 +103,7 @@ function PipelineCard({ pipeline, onClick }: { pipeline: Pipeline; onClick: () =
       </div>
 
       <div className="h-[60px] mb-4">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <AreaChart data={last}>
             <defs>
               <linearGradient id={`mg-${pipeline.id}`} x1="0" y1="0" x2="0" y2="1">
@@ -299,7 +299,7 @@ function TelemetryCard({
         <span className="text-[10px] text-[#6B7280] font-mono">{unit}</span>
       </div>
       <div className="h-[180px]">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <AreaChart data={data}>
             <defs>
               <linearGradient id={`tg-${dataKey}`} x1="0" y1="0" x2="0" y2="1">

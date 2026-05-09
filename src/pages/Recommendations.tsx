@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Lightbulb, RefreshCcw, Check, X } from 'lucide-react';
 import { Header } from '../components/Header';
-import { api } from '../services/api';
+import { pipelinesApi } from '../services/api';
+import { deriveRecommendations } from '../services/adapters';
 import { cn, timeAgo } from '../lib/utils';
 import type { Recommendation } from '../types';
 
@@ -11,7 +12,8 @@ export function RecommendationsPage() {
 
   const reload = async () => {
     try {
-      setRecs(await api.recommendations());
+      const pipelines = await pipelinesApi.list();
+      setRecs(deriveRecommendations(pipelines));
     } catch {
       /* ignore */
     }
@@ -24,16 +26,15 @@ export function RecommendationsPage() {
   const regen = async () => {
     setBusy(true);
     try {
-      const r = await api.regenerateRecommendations();
-      setRecs(r.items);
+      await reload();
     } finally {
       setBusy(false);
     }
   };
 
-  const update = async (id: string, status: 'accepted' | 'dismissed') => {
-    await api.updateRecommendation(id, status);
-    reload();
+  const update = (id: string, status: 'accepted' | 'dismissed') => {
+    // Client-side status change (no backend endpoint)
+    setRecs((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
   };
 
   const open = recs.filter((r) => r.status === 'open');
@@ -70,7 +71,7 @@ export function RecommendationsPage() {
 
           <Section title="Open · pending review">
             {open.length === 0 ? (
-              <Empty msg="No open recommendations." />
+              <Empty msg="No open recommendations — all pipelines are healthy or unanalyzed." />
             ) : (
               <List recs={open} onUpdate={update} />
             )}

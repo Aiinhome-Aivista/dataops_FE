@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Header } from '../components/Header';
 import { ConnectorModal } from '../components/ConnectorModal';
-import { api } from '../services/api';
+import { connectorsApi } from '../services/api';
+import { mapConnector } from '../services/adapters';
 import type { Connector } from '../types';
 import { cn } from '../lib/utils';
 
@@ -15,13 +16,23 @@ const TYPE_BADGE: Record<string, string> = {
   Git: 'bg-gray-50 text-gray-700 border-gray-100',
   Runtime: 'bg-indigo-50 text-indigo-700 border-indigo-100',
   Cloud: 'bg-sky-50 text-sky-700 border-sky-100',
+  airflow: 'bg-blue-50 text-blue-700 border-blue-100',
+  adf: 'bg-purple-50 text-purple-700 border-purple-100',
+  databricks: 'bg-amber-50 text-amber-700 border-amber-100',
 };
 
 export function ConnectorsPage() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [open, setOpen] = useState(false);
 
-  const reload = async () => setConnectors(await api.connectors());
+  const reload = async () => {
+    try {
+      const raw = await connectorsApi.list();
+      setConnectors(raw.map(mapConnector));
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     reload();
@@ -84,7 +95,7 @@ export function ConnectorsPage() {
                       <div>
                         <p className="text-sm font-semibold">{c.name}</p>
                         <p className="text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold mt-1">
-                          {c.last_sync}
+                          {c.last_sync || 'never synced'}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

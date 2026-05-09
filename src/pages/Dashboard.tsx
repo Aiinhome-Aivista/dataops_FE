@@ -26,7 +26,9 @@ import { LiveLogStream } from '../components/LiveLogStream';
 import { RiskBadge, StatusBadge, PipelineStatusBadge } from '../components/Badges';
 import { ConnectorModal } from '../components/ConnectorModal';
 import { useStore } from '../hooks/useStore';
-import { api } from '../services/api';
+import { pipelinesApi, connectorsApi } from '../services/api';
+import type { DashboardStatsRaw } from '../services/api';
+import { mapStatsToMetricsSummary, mapStatsToHealthMetrics, mapConnector } from '../services/adapters';
 import type { Connector, HealthMetric, MetricsSummary } from '../types';
 import { formatTime } from '../lib/utils';
 
@@ -40,14 +42,13 @@ export function DashboardPage() {
 
   const reload = async () => {
     try {
-      const [hm, sm, conn] = await Promise.all([
-        api.metricsHealth(),
-        api.metricsSummary(),
-        api.connectors(),
+      const [statsRaw, connRaw] = await Promise.all([
+        pipelinesApi.stats(),
+        connectorsApi.list(),
       ]);
-      setHealthMetrics(hm);
-      setSummary(sm);
-      setConnectors(conn);
+      setSummary(mapStatsToMetricsSummary(statsRaw));
+      setHealthMetrics(mapStatsToHealthMetrics(statsRaw));
+      setConnectors(connRaw.map(mapConnector));
     } catch {
       /* ignore */
     }
@@ -130,7 +131,7 @@ export function DashboardPage() {
                 <span className="text-[10px] text-[#6B7280] font-mono">8h window</span>
               </div>
               <div className="h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <AreaChart data={healthMetrics}>
                     <defs>
                       <linearGradient id="colorMttr" x1="0" y1="0" x2="0" y2="1">
@@ -185,7 +186,7 @@ export function DashboardPage() {
                 <span className="text-[10px] text-[#6B7280] font-mono">8h window</span>
               </div>
               <div className="h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <LineChart data={healthMetrics}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                     <XAxis
@@ -272,7 +273,7 @@ export function DashboardPage() {
                 {state.pipelines.map((pipeline) => (
                   <button
                     key={pipeline.id}
-                    onClick={() => navigate(`/pipelines/${pipeline.id}`)}
+                    onClick={() => navigate(`/app/pipelines/${pipeline.id}`)}
                     className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
                   >
                     <div className="flex items-center gap-4">
@@ -295,15 +296,6 @@ export function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="hidden sm:flex flex-col items-end">
-                        <p className="text-xs font-semibold font-mono tabular-nums">
-                          {pipeline.throughput.toLocaleString()}{' '}
-                          <span className="text-[#9CA3AF] font-normal">msg/s</span>
-                        </p>
-                        <p className="text-[10px] text-[#9CA3AF] font-mono">
-                          p95 {pipeline.latency}ms
-                        </p>
-                      </div>
                       <PipelineStatusBadge status={pipeline.status} />
                     </div>
                   </button>
@@ -366,7 +358,7 @@ export function DashboardPage() {
                     openIncidents.slice(0, 8).map((incident) => (
                       <tr
                         key={incident.id}
-                        onClick={() => navigate(`/incidents/${incident.id}`)}
+                        onClick={() => navigate(`/app/incidents/${incident.id}`)}
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
                       >
                         <td className="px-7 py-5">

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../services/api';
+import { mapConnector } from '../services/adapters';
 import type { Connector, ConnectorDetail, ConnectorType } from '../types';
 
 interface Props {
@@ -88,8 +89,9 @@ export function ConnectorModal({ open, onClose, connectors, onChange }: Props) {
     setBusy(c.id);
     try {
       const d = await api.getConnector(c.id);
-      setDetail(d);
-      setView({ kind: 'form', typeId: d.type_id, existingId: d.id });
+      const mapped = mapConnector(d);
+      setDetail(mapped);
+      setView({ kind: 'form', typeId: mapped.type_id, existingId: mapped.id });
     } catch (e: any) {
       setErr(e.message || 'failed to load connector');
     } finally {

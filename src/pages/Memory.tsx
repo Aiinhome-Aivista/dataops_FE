@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Search, Brain, BookOpen, Layers, ArrowRight } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Brain, BookOpen, Layers, ArrowRight, Info } from 'lucide-react';
 import { Header } from '../components/Header';
-import { api } from '../services/api';
-import { cn, timeAgo } from '../lib/utils';
-import type { MemoryEntry } from '../types';
+import { cn } from '../lib/utils';
 
 const KIND_META = {
   episodic: {
@@ -25,42 +23,6 @@ const KIND_META = {
 
 export function MemoryPage() {
   const [kind, setKind] = useState<'episodic' | 'procedural' | 'semantic'>('episodic');
-  const [entries, setEntries] = useState<MemoryEntry[]>([]);
-  const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<MemoryEntry[]>([]);
-  const [searching, setSearching] = useState(false);
-
-  const reload = async (k: typeof kind) => {
-    try {
-      const data = await api.memory(k);
-      setEntries(data);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  useEffect(() => {
-    reload(kind);
-  }, [kind]);
-
-  const onSearch = async () => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    setSearching(true);
-    try {
-      const r = await api.searchMemory(query.trim(), kind, 8);
-      setSearchResults(r);
-    } catch {
-      /* ignore */
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  const visible = searchResults.length > 0 ? searchResults : entries;
-  const Meta = KIND_META[kind];
 
   return (
     <>
@@ -70,7 +32,21 @@ export function MemoryPage() {
       />
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Tier selector */}
+
+          {/* Unavailable banner */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 flex items-start gap-3">
+            <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-900">Memory System Unavailable</p>
+              <p className="text-xs text-amber-700 mt-1">
+                The memory API (episodic, procedural, semantic tiers and RAG search) is not available
+                in the current backend. This feature requires the Qdrant vector store integration
+                which is planned for a future release.
+              </p>
+            </div>
+          </div>
+
+          {/* Tier selector (visual only) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {(Object.keys(KIND_META) as Array<keyof typeof KIND_META>).map((k) => {
               const M = KIND_META[k];
@@ -78,11 +54,7 @@ export function MemoryPage() {
               return (
                 <button
                   key={k}
-                  onClick={() => {
-                    setKind(k);
-                    setSearchResults([]);
-                    setQuery('');
-                  }}
+                  onClick={() => setKind(k)}
                   className={cn(
                     'p-6 rounded-lg border text-left transition-all relative overflow-hidden',
                     active
@@ -122,128 +94,32 @@ export function MemoryPage() {
             })}
           </div>
 
-          {/* Search bar */}
-          <div className="bg-white border border-[#E5E7EB] rounded-lg p-2 flex items-center gap-2">
+          {/* Search bar (disabled) */}
+          <div className="bg-white border border-[#E5E7EB] rounded-lg p-2 flex items-center gap-2 opacity-50 pointer-events-none">
             <Search className="w-4 h-4 text-[#9CA3AF] ml-3" />
             <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-              placeholder={`Search ${Meta.label.toLowerCase()} memory…`}
+              disabled
+              placeholder="Memory search unavailable…"
               className="flex-1 px-2 py-2 text-sm bg-transparent outline-none placeholder:text-[#9CA3AF]"
             />
-            {query && (
-              <button
-                onClick={() => {
-                  setQuery('');
-                  setSearchResults([]);
-                }}
-                className="text-xs text-[#6B7280] hover:text-[#111827] px-2"
-              >
-                Clear
-              </button>
-            )}
             <button
-              onClick={onSearch}
-              disabled={searching}
-              className="px-4 py-2 bg-[#111827] text-white text-[10px] font-bold uppercase tracking-[0.18em] rounded hover:bg-black transition-all disabled:opacity-50"
+              disabled
+              className="px-4 py-2 bg-[#111827] text-white text-[10px] font-bold uppercase tracking-[0.18em] rounded opacity-50"
             >
-              {searching ? 'Searching…' : 'RAG Search'}
+              RAG Search
             </button>
           </div>
 
-          {/* Result list */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF]">
-                {searchResults.length > 0
-                  ? `RAG · ${searchResults.length} top matches`
-                  : `${visible.length} entries`}
-              </h3>
-              {searchResults.length > 0 && (
-                <button
-                  onClick={() => setSearchResults([])}
-                  className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#6B7280] hover:text-[#111827]"
-                >
-                  Clear results
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {visible.length === 0 ? (
-                <p className="col-span-2 text-center py-12 text-[#9CA3AF] italic text-sm">
-                  No memory entries.
-                </p>
-              ) : (
-                visible.map((m) => <MemoryCard key={m.id} m={m} />)
-              )}
-            </div>
+          {/* Empty state */}
+          <div className="bg-white border border-dashed border-[#E5E7EB] rounded-lg p-16 text-center">
+            <Brain className="w-12 h-12 text-[#D1D5DB] mx-auto mb-4" />
+            <p className="text-[#9CA3AF] italic text-sm">
+              No memory entries available. Connect a vector store backend to enable
+              episodic, procedural, and semantic memory tiers.
+            </p>
           </div>
         </div>
       </main>
     </>
-  );
-}
-
-function MemoryCard({ m }: { m: MemoryEntry }) {
-  return (
-    <div className="bg-white border border-[#E5E7EB] rounded-lg p-5 hover:border-gray-300 transition-colors">
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold leading-snug">{m.title}</p>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold mt-1">
-            {m.kind} · {timeAgo(m.created_at)}
-            {m.times_referenced > 0 && ` · referenced ${m.times_referenced}x`}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          {m.similarity != null && (
-            <span className="font-mono text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-              sim {m.similarity.toFixed(2)}
-            </span>
-          )}
-          {m.success != null && (
-            <span
-              className={cn(
-                'text-[9px] uppercase tracking-[0.15em] font-bold px-2 py-0.5 rounded',
-                m.success ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700',
-              )}
-            >
-              {m.success ? 'success' : 'failed'}
-            </span>
-          )}
-        </div>
-      </div>
-      <p className="text-xs text-[#6B7280] leading-relaxed">{m.summary}</p>
-
-      {Object.keys(m.payload).length > 0 && (
-        <div className="mt-3 pt-3 border-t border-[#F3F4F6] grid grid-cols-2 gap-3">
-          {Object.entries(m.payload)
-            .filter(([k]) => k !== 'incident_id')
-            .slice(0, 4)
-            .map(([k, v]) => (
-              <div key={k} className="min-w-0">
-                <p className="text-[9px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
-                  {k}
-                </p>
-                <p className="font-mono text-[11px] truncate text-[#4B5563] mt-0.5">
-                  {Array.isArray(v) ? v.join(', ') : String(v)}
-                </p>
-              </div>
-            ))}
-        </div>
-      )}
-
-      {m.tags.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap mt-3">
-          {m.tags.slice(0, 6).map((t) => (
-            <span key={t} className="tag-chip">
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }

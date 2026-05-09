@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Brain,
@@ -8,14 +7,13 @@ import {
   Network,
   ShieldCheck,
   Wrench,
-  Zap,
+  Info,
 } from 'lucide-react';
 import { Header } from '../components/Header';
 import { LiveLogStream } from '../components/LiveLogStream';
 import { useStore } from '../hooks/useStore';
-import { api } from '../services/api';
 import { cn } from '../lib/utils';
-import type { AgentStatus, ToolSpec } from '../types';
+import type { AgentStatus, LogEntry } from '../types';
 
 const ROLE_ICON = {
   orchestrator: Network,
@@ -37,11 +35,6 @@ const ROLE_COLOR: Record<string, { bg: string; ring: string; text: string; soft:
 
 export function AgentsPage() {
   const { state } = useStore();
-  const [tools, setTools] = useState<ToolSpec[]>([]);
-
-  useEffect(() => {
-    api.tools().then(setTools).catch(() => {});
-  }, []);
 
   const orchestrator = state.agents.find((a) => a.role === 'orchestrator');
   const subAgents = state.agents.filter((a) => a.role !== 'orchestrator');
@@ -54,6 +47,20 @@ export function AgentsPage() {
       />
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-10">
+
+          {/* Info banner */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-900">Agent Status — Derived View</p>
+              <p className="text-xs text-blue-700 mt-1">
+                Live agent telemetry is not available from the current backend. Agent states shown below are
+                derived from pipeline activity and WebSocket events. Full agent instrumentation is planned
+                for a future release.
+              </p>
+            </div>
+          </div>
+
           {/* Mesh diagram */}
           <section className="bg-white border border-[#E5E7EB] rounded-lg p-10 grid-backdrop">
             <div className="flex items-center justify-between mb-8">
@@ -64,7 +71,7 @@ export function AgentsPage() {
                 </p>
               </div>
               <span className="text-[10px] text-[#6B7280] font-mono">
-                {state.agents.length} agents · {tools.length} tools
+                {state.agents.length} agents
               </span>
             </div>
 
@@ -109,36 +116,11 @@ export function AgentsPage() {
                 Schema-driven, idempotent, timeout-bounded
               </p>
               <div className="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar">
-                {tools.map((t) => (
-                  <div
-                    key={t.name}
-                    className="border border-[#E5E7EB] rounded p-4 hover:border-gray-300 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-[12px] font-semibold">{t.name}</span>
-                      <span
-                        className={cn(
-                          'text-[9px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded',
-                          t.risk === 'high'
-                            ? 'bg-red-50 text-red-700'
-                            : t.risk === 'medium'
-                              ? 'bg-amber-50 text-amber-700'
-                              : 'bg-blue-50 text-blue-700',
-                        )}
-                      >
-                        {t.risk}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[#6B7280]">{t.description}</p>
-                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                      {Object.entries(t.args_schema).map(([k, v]) => (
-                        <span key={k} className="tag-chip">
-                          {k}: {v}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                <div className="border border-dashed border-[#E5E7EB] rounded p-8 text-center">
+                  <p className="text-sm text-[#9CA3AF] italic">
+                    Tool registry is not available from the current backend.
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -180,7 +162,7 @@ export function AgentsPage() {
 
 function AgentNode({ agent, hero = false }: { agent: AgentStatus; hero?: boolean }) {
   const C = ROLE_COLOR[agent.role] || ROLE_COLOR.orchestrator;
-  const Icon = ROLE_ICON[agent.role] || Brain;
+  const Icon = ROLE_ICON[agent.role as keyof typeof ROLE_ICON] || Brain;
   const live = agent.status === 'thinking';
   return (
     <div
@@ -244,7 +226,7 @@ function AgentNode({ agent, hero = false }: { agent: AgentStatus; hero?: boolean
   );
 }
 
-function LiveLogStreamDark({ logs }: { logs: any[] }) {
+function LiveLogStreamDark({ logs }: { logs: LogEntry[] }) {
   if (logs.length === 0) {
     return (
       <p className="text-[#64748B] italic text-[11px] uppercase tracking-[0.18em] font-bold py-8 text-center">

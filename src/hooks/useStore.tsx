@@ -1,20 +1,37 @@
+/**
+ * Global store — rewired for DataOps_1 backend.
+ *
+ * Bootstrap fetches pipelines + stats, then derives incidents, agents,
+ * and logs from the pipeline/run data.  A WebSocket connection pushes
+ * live events into the reducer.
+ */
+
 import { useEffect, useReducer, useRef, createContext, useContext, type ReactNode } from 'react';
 import type { AgentStatus, Incident, LogEntry, Pipeline } from '../types';
-import { api, wsUrl } from '../services/api';
+import { pipelinesApi, connectorsApi, runsApi, wsUrl } from '../services/api';
+import type { PipelineRaw } from '../services/api';
+import {
+  mapPipeline,
+  deriveIncidents,
+  deriveAuditLogs,
+  defaultAgents,
+} from '../services/adapters';
+
+// ── State ───────────────────────────────────────────────────────────
 
 interface State {
   pipelines: Pipeline[];
+  pipelinesRaw: PipelineRaw[];       // keep raw for incident derivation
   incidents: Incident[];
   agents: AgentStatus[];
   logs: LogEntry[];
   simulating: boolean;
   connected: boolean;
-  // Live highlighting — which agent is currently "thinking"
-  activeAgentRoles: Record<string, number>; // role -> expiry epoch
+  activeAgentRoles: Record<string, number>;
 }
 
 type Action =
-  | { type: 'snapshot'; payload: { pipelines: Pipeline[]; incidents: Incident[]; agents: AgentStatus[]; simulating: boolean } }
+  | { type: 'bootstrap'; payload: { pipelinesRaw: PipelineRaw[] } }
   | { type: 'pipelines'; payload: Pipeline[] }
   | { type: 'incident'; payload: Incident }
   | { type: 'log'; payload: LogEntry }
@@ -26,8 +43,9 @@ type Action =
 
 const initial: State = {
   pipelines: [],
+  pipelinesRaw: [],
   incidents: [],
-  agents: [],
+  agents: defaultAgents(),
   logs: [],
   simulating: false,
   connected: false,
@@ -36,14 +54,17 @@ const initial: State = {
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'snapshot':
+    case 'bootstrap': {
+      const raw = action.payload.pipelinesRaw;
       return {
         ...state,
-        pipelines: action.payload.pipelines,
-        incidents: action.payload.incidents,
-        agents: action.payload.agents,
-        simulating: action.payload.simulating,
+        pipelinesRaw: raw,
+        pipelines: raw.map(mapPipeline),
+        incidents: deriveIncidents(raw),
+        logs: deriveAuditLogs(raw),
+        agents: defaultAgents(),
       };
+    }
     case 'pipelines':
       return { ...state, pipelines: action.payload };
     case 'incident': {
@@ -91,6 +112,8 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+// ── Context ─────────────────────────────────────────────────────────
+
 type Ctx = {
   state: State;
   triggerIncident: () => Promise<void>;
@@ -107,75 +130,69 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
 
-  // Bootstrap REST
+  // ── Bootstrap from REST ───────────────────────────────────────────
   const bootstrap = async () => {
     try {
-      const [pipelines, incidents, agents, healthInfo] = await Promise.all([
-        api.pipelines(),
-        api.incidents(),
-        api.agents(),
-        api.health(),
-      ]);
-      dispatch({
-        type: 'snapshot',
-        payload: { pipelines, incidents, agents, simulating: false },
-      });
+      const pipelinesRaw = await pipelinesApi.list();
+      dispatch({ type: 'bootstrap', payload: { pipelinesRaw } });
     } catch (e) {
       console.warn('Bootstrap failed', e);
     }
   };
 
-  // WebSocket lifecycle
+  // ── WebSocket lifecycle ───────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
     const connect = () => {
-      const url = wsUrl();
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
+      try {
+        const url = wsUrl();
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
 
-      ws.onopen = () => {
-        if (cancelled) return;
-        dispatch({ type: 'connected', payload: true });
-      };
-      ws.onclose = () => {
-        if (cancelled) return;
-        dispatch({ type: 'connected', payload: false });
-        // Reconnect with backoff
-        reconnectTimerRef.current = window.setTimeout(connect, 2000);
-      };
-      ws.onerror = () => {
-        // Closing handler will fire next
-      };
-      ws.onmessage = (evt) => {
-        try {
-          const msg = JSON.parse(evt.data);
-          handleEvent(msg);
-        } catch (e) {
-          console.warn('Bad WS payload', e);
-        }
-      };
+        ws.onopen = () => {
+          if (cancelled) return;
+          dispatch({ type: 'connected', payload: true });
+        };
+        ws.onclose = () => {
+          if (cancelled) return;
+          dispatch({ type: 'connected', payload: false });
+          reconnectTimerRef.current = window.setTimeout(connect, 3000);
+        };
+        ws.onerror = () => {
+          // onclose fires next
+        };
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+            handleEvent(msg);
+          } catch (e) {
+            console.warn('Bad WS payload', e);
+          }
+        };
+      } catch {
+        // WebSocket constructor can throw if URL is invalid
+        reconnectTimerRef.current = window.setTimeout(connect, 5000);
+      }
     };
 
-    const handleEvent = (msg: { event: string; payload: any }) => {
+    const handleEvent = (msg: { event: string; data?: Record<string, unknown>; payload?: Record<string, unknown> }) => {
+      const data = msg.data || msg.payload || {};
       switch (msg.event) {
-        case 'snapshot':
-          dispatch({ type: 'snapshot', payload: msg.payload });
-          break;
-        case 'pipelines_update':
-          dispatch({ type: 'pipelines', payload: msg.payload });
-          break;
-        case 'incident_update':
-          dispatch({ type: 'incident', payload: msg.payload });
-          break;
-        case 'log':
-          dispatch({ type: 'log', payload: msg.payload });
+        case 'run.updated':
+        case 'pipeline.created':
+        case 'analysis.ready':
+        case 'connector.synced':
+          // Re-fetch fresh data
+          bootstrap();
           break;
         case 'agent_started':
-          dispatch({ type: 'agent_started', payload: msg.payload });
+          dispatch({ type: 'agent_started', payload: data as { role: string; name: string; last_action: string } });
           break;
         case 'agent_completed':
-          dispatch({ type: 'agent_completed', payload: msg.payload });
+          dispatch({ type: 'agent_completed', payload: data as { role: string; name: string; last_action: string } });
+          break;
+        default:
           break;
       }
     };
@@ -190,38 +207,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Keep agent statuses fresh (poll once every 30s as a safety net)
+  // ── Periodic refresh (every 30s) ──────────────────────────────────
   useEffect(() => {
-    const t = window.setInterval(async () => {
-      try {
-        const agents = await api.agents();
-        dispatch({ type: 'agents', payload: agents });
-      } catch {
-        /* ignore */
-      }
+    const t = window.setInterval(() => {
+      bootstrap();
     }, 30000);
     return () => window.clearInterval(t);
   }, []);
 
+  // ── Actions ───────────────────────────────────────────────────────
   const triggerIncident = async () => {
-    try {
-      await api.triggerIncident({});
-    } catch (e) {
-      console.warn('trigger failed', e);
-    }
+    console.info('triggerIncident: not available in DataOps_1 backend');
   };
 
   const toggleSimulation = async () => {
-    // Simulator removed in production; this is a no-op kept for UI compatibility.
-    console.info('simulator removed in production build');
+    console.info('toggleSimulation: not available in DataOps_1 backend');
   };
 
-  const approveIncident = async (id: string) => {
-    await api.approveIncident(id);
+  const approveIncident = async (_id: string) => {
+    // Map to auto-fix on the corresponding run
+    try {
+      await runsApi.applyFix(_id);
+      await bootstrap();
+    } catch (e) {
+      console.warn('approveIncident failed', e);
+    }
   };
 
-  const rejectIncident = async (id: string) => {
-    await api.rejectIncident(id);
+  const rejectIncident = async (_id: string) => {
+    console.info('rejectIncident: no-op — run will remain in failed state');
   };
 
   const ctx: Ctx = {

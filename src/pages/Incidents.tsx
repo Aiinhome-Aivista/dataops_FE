@@ -21,7 +21,6 @@ import { LiveLogStream } from '../components/LiveLogStream';
 import { RiskBadge, StatusBadge } from '../components/Badges';
 import { PipelineDAG } from '../components/PipelineDAG';
 import { useStore } from '../hooks/useStore';
-import { api } from '../services/api';
 import { cn, formatTime, timeAgo } from '../lib/utils';
 import type { Incident, MemoryEntry } from '../types';
 
@@ -63,9 +62,10 @@ export function IncidentsPage() {
     if (!confirm(`Permanently delete ${labels[scope]} incidents? This cannot be undone.`)) return;
     setClearing(true);
     try {
-      const r = await api.deleteIncidents({ status: scope });
-      window.location.reload();
-      console.info(`deleted ${r.deleted} incidents`);
+      // Note: Incident deletion is not available in the current backend.
+      // Incidents are derived from failed runs.
+      console.info(`Clear ${labels[scope]} requested — not available in DataOps_1 backend`);
+      alert('Incident clearing is not supported with the current backend. Incidents are derived from pipeline runs.');
     } catch (e: any) {
       alert(`Clear failed: ${e.message}`);
     } finally {
@@ -147,7 +147,7 @@ export function IncidentsPage() {
               filtered.map((incident) => (
                 <button
                   key={incident.id}
-                  onClick={() => navigate(`/incidents/${incident.id}`)}
+                  onClick={() => navigate(`/app/incidents/${incident.id}`)}
                   className={cn(
                     'w-full p-5 text-left transition-colors flex flex-col gap-2 relative',
                     selected?.id === incident.id ? 'bg-gray-50' : 'hover:bg-gray-50/50',
@@ -235,16 +235,8 @@ function IncidentDetail({
   );
 
   useEffect(() => {
-    let cancelled = false;
-    if (incident.root_cause) {
-      api
-        .searchMemory(`${incident.pipeline_name} ${incident.root_cause}`, 'episodic', 4)
-        .then((r) => !cancelled && setSimilar(r))
-        .catch(() => {});
-    }
-    return () => {
-      cancelled = true;
-    };
+    // Memory search not available in DataOps_1 backend
+    setSimilar([]);
   }, [incident.id, incident.root_cause]);
 
   return (

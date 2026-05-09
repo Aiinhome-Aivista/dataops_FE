@@ -3,22 +3,18 @@ import { Search, Download, RefreshCcw } from 'lucide-react';
 import { Header } from '../components/Header';
 import { LiveLogStream } from '../components/LiveLogStream';
 import { useStore } from '../hooks/useStore';
-import { api } from '../services/api';
 import { cn } from '../lib/utils';
 import type { LogEntry } from '../types';
 
 const TYPES: Array<{ id: string; label: string }> = [
   { id: 'all', label: 'All' },
-  { id: 'agent', label: 'Agent' },
-  { id: 'tool', label: 'Tool' },
   { id: 'info', label: 'Info' },
-  { id: 'warn', label: 'Warn' },
   { id: 'error', label: 'Error' },
+  { id: 'warn', label: 'Warn' },
 ];
 
 export function AuditPage() {
-  const { state } = useStore();
-  const [persisted, setPersisted] = useState<LogEntry[]>([]);
+  const { state, refresh } = useStore();
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
@@ -26,40 +22,29 @@ export function AuditPage() {
   const reload = async () => {
     setBusy(true);
     try {
-      setPersisted(await api.audit(300));
+      await refresh();
     } finally {
       setBusy(false);
     }
   };
 
-  useEffect(() => {
-    reload();
-  }, []);
-
-  const merged = useMemo(() => {
-    // Live (state.logs) is authoritative; persisted fills in older history.
-    const seen = new Set(state.logs.map((l) => l.id));
-    const tail = persisted.filter((l) => !seen.has(l.id));
-    return [...state.logs, ...tail];
-  }, [state.logs, persisted]);
-
   const filtered = useMemo(() => {
-    let list = merged;
+    let list = state.logs;
     if (filter !== 'all') list = list.filter((l) => l.type === filter);
     if (query.trim())
       list = list.filter((l) =>
         l.msg.toLowerCase().includes(query.trim().toLowerCase()),
       );
     return list;
-  }, [merged, filter, query]);
+  }, [state.logs, filter, query]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
-    merged.forEach((l) => {
+    state.logs.forEach((l) => {
       c[l.type] = (c[l.type] || 0) + 1;
     });
     return c;
-  }, [merged]);
+  }, [state.logs]);
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: 'application/json' });
@@ -75,7 +60,7 @@ export function AuditPage() {
     <>
       <Header
         title="Audit Trail"
-        subtitle="Immutable decision log · every agent step, every tool call"
+        subtitle="Immutable decision log · every pipeline run recorded"
         actions={
           <>
             <button
