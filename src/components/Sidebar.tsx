@@ -9,9 +9,11 @@ import {
   Plug,
   Zap,
   Wrench,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../hooks/useStore';
+import { auth } from '../services/api';
 
 const NAV = [
   { to: '/app', icon: LayoutDashboard, label: 'Dashboard' },
@@ -31,6 +33,11 @@ export function Sidebar() {
   const openIncidents = state.incidents.filter(
     (i) => i.status !== 'Remediated' && i.status !== 'Escalated',
   ).length;
+
+  const handleLogout = () => {
+    auth.clearToken();
+    navigate('/');
+  };
 
   return (
     <aside className="w-64 bg-white border-r border-[#E5E7EB] flex flex-col shrink-0">
@@ -78,7 +85,7 @@ export function Sidebar() {
       </div>
 
       <div className="mt-auto p-7 border-t border-[#E5E7EB]">
-        <div className="flex items-center justify-between px-1">
+        <div className="flex items-center justify-between px-1 mb-6">
           <span className="text-[9px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
             Stream
           </span>
@@ -94,6 +101,14 @@ export function Sidebar() {
             </span>
           </div>
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-[#6B7280] hover:bg-rose-50 hover:text-rose-600 transition-all text-[13px] font-medium group"
+        >
+          <LogOut className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+          <span>Sign Out</span>
+        </button>
       </div>
     </aside>
   );
