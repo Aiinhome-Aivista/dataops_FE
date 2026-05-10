@@ -67,7 +67,7 @@ export function StatusBadge({
 export function PipelineStatusBadge({ status }: { status?: string }) {
   const s = (status || 'unknown').toLowerCase();
   const styles =
-    s === 'healthy'
+    s === 'healthy' || s === 'succeeded'
       ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
       : s === 'degraded'
         ? 'bg-amber-50 text-amber-700 border-amber-100'

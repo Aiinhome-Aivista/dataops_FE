@@ -17,6 +17,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 /* Scrollbars */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
