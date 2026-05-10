@@ -179,7 +179,7 @@ export function RunInvestigation({
                   <div className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-1">
                     Error Message
                   </div>
-                  <div className="text-sm font-mono text-[#111827] break-words">
+                  <div className="text-sm font-mono text-[#111827] wrap-break-word">
                     {run.error_message}
                   </div>
                 </div>
@@ -281,7 +281,7 @@ export function RunInvestigation({
                       )}
                       <span
                         className={cn(
-                          "flex-1 whitespace-pre-wrap break-words",
+                          "flex-1 whitespace-pre-wrap wrap-break-word",
                           l.level === "ERROR"
                             ? "text-rose-200"
                             : "text-gray-300",
