@@ -199,7 +199,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       if (reconnectTimerRef.current) window.clearTimeout(reconnectTimerRef.current);
-      wsRef.current?.close();
+      if (wsRef.current && wsRef.current.readyState < 2) {
+        wsRef.current.close();
+      }
     };
   }, []);
 

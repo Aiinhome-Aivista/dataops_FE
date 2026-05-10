@@ -48,6 +48,16 @@ export interface ResourceMetric {
   io: number;
 }
 
+export interface PipelineRun {
+  id: string;
+  pipeline_id: string;
+  external_run_id: string;
+  status: 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'RUNNING' | 'QUEUED' | string;
+  started_at: string;
+  duration_seconds: number | null;
+  analysis?: any;
+}
+
 export interface Pipeline {
   id: string;
   connector_id: number;
@@ -55,13 +65,14 @@ export interface Pipeline {
   description?: string | null;
   status: PipelineStatus;
   last_run: string;
-  throughput: number;
-  latency: number;
-  schedule: string;
-  owner: string;
-  sla_minutes: number;
-  dag: DAGNode[];
-  resource_metrics: ResourceMetric[];
+  throughput?: number;
+  latency?: number;
+  schedule?: string;
+  owner?: string;
+  sla_minutes?: number;
+  dag?: DAGNode[];
+  resource_metrics?: ResourceMetric[];
+  runs: PipelineRun[];
   last_run_status?: string;
   last_run_at?: string;
   created_at?: string;
