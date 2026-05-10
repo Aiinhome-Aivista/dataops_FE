@@ -43,7 +43,7 @@ export function PipelineList({ title, icon: Icon, pipelines, empty, accent }: Pr
                 <h5 className="text-sm font-medium text-[#111827] group-hover:text-blue-600 transition-colors">{p.name}</h5>
                 <p className="text-[10px] text-[#9CA3AF] mt-0.5">last run {p.last_run}</p>
               </div>
-              <PipelineStatusBadge status={p.status} />
+              <PipelineStatusBadge status={p.last_run_status || p.status} />
             </Link>
           ))
         )}

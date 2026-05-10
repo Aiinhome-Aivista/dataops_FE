@@ -62,6 +62,7 @@ export interface Pipeline {
   sla_minutes: number;
   dag: DAGNode[];
   resource_metrics: ResourceMetric[];
+  last_run_status?: string;
   tags: string[];
 }
 

@@ -64,8 +64,8 @@ export function StatusBadge({
   );
 }
 
-export function PipelineStatusBadge({ status }: { status: string }) {
-  const s = status.toLowerCase();
+export function PipelineStatusBadge({ status }: { status?: string }) {
+  const s = (status || 'unknown').toLowerCase();
   const styles =
     s === 'healthy'
       ? 'bg-emerald-50 text-emerald-700 border-emerald-100'

@@ -39,7 +39,7 @@ import type { Connector, HealthMetric, DashboardStats } from "../types";
 import { formatTime, cn } from "../lib/utils";
 
 export function DashboardPage() {
-  const { state } = useStore();
+  const { state, refresh } = useStore();
   const navigate = useNavigate();
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -47,6 +47,7 @@ export function DashboardPage() {
   const [showModal, setShowModal] = useState(false);
 
   const reload = async () => {
+    refresh();
     // Fetch connectors independently so they show even if metrics fail
     api
       .connectors()
@@ -82,16 +83,18 @@ export function DashboardPage() {
   );
 
   const STATUS_COLORS: Record<string, string> = {
-    HEALTHY: "#10B981",
-    UNHEALTHY: "#EF4444",
-    FAILED: "#EF4444",
-    DEGRADED: "#F59E0B",
-    PAUSED: "#6B7280",
-    UNKNOWN: "#9CA3AF",
+    HEALTHY: "#c5f24a",
+    SUCCEEDED: "#c5f24a",
+    UNHEALTHY: "#ff5d73",
+    FAILED: "#ff5d73",
+    DEGRADED: "#ffb547",
+    PAUSED: "#5b6573",
+    CANCELLED: "#5b6573",
+    UNKNOWN: "#3b4653",
   };
 
   const statusCounts = state.pipelines.reduce((acc, p) => {
-    let k = (p.status || "UNKNOWN").toUpperCase();
+    let k = (p.last_run_status || p.status || "UNKNOWN").toUpperCase();
     if (k === "UNHEALTHY") k = "FAILED"; // Group these for the chart
     acc[k] = (acc[k] || 0) + 1;
     return acc;
@@ -113,12 +116,15 @@ export function DashboardPage() {
 
   const failedPipelines = state.pipelines
     .filter((p) => {
-      const s = (p.status || "").toLowerCase();
+      const s = (p.last_run_status || p.status || "").toLowerCase();
       return s === "unhealthy" || s === "degraded" || s === "failed";
     })
     .slice(0, 5);
   const runningPipelines = state.pipelines
-    .filter((p) => (p.status || "").toLowerCase() === "healthy")
+    .filter((p) => {
+      const s = (p.last_run_status || p.status || "").toLowerCase();
+      return s === "healthy" || s === "succeeded";
+    })
     .slice(0, 5);
 
   return (
@@ -210,16 +216,16 @@ export function DashboardPage() {
                         dataKey="value"
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
+                        innerRadius={50}
                         outerRadius={80}
-                        paddingAngle={4}
+                        paddingAngle={2}
                         stroke="#fff"
                         strokeWidth={2}
                       >
                         {statusData.map((d) => (
                           <Cell
                             key={d.name}
-                            fill={STATUS_COLORS[d.name] || "#CBD5E1"}
+                            fill={STATUS_COLORS[d.name] || "#3b4653"}
                           />
                         ))}
                       </Pie>
@@ -227,8 +233,9 @@ export function DashboardPage() {
                         contentStyle={{
                           backgroundColor: "#FFFFFF",
                           border: "1px solid #E5E7EB",
-                          borderRadius: 4,
-                          fontSize: 11,
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontFamily: "JetBrains Mono, monospace",
                         }}
                       />
                     </PieChart>
@@ -240,7 +247,7 @@ export function DashboardPage() {
                   <div key={d.name} className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tight">
                     <span
                       className="w-2 h-2 rounded-sm"
-                      style={{ background: STATUS_COLORS[d.name] || "#CBD5E1" }}
+                      style={{ background: STATUS_COLORS[d.name] || "#3b4653" }}
                     />
                     <span className="text-[#6B7280]">{d.name}</span>
                     <span className="text-[#111827]">{d.value}</span>
