@@ -166,6 +166,7 @@ export function ConnectorModal({ open, onClose, connectors, onChange, initialVie
               {view === 'new' && (
                 <NewConnectorForm
                   onSaved={() => { onChange(); setView('list'); }}
+                  onCancel={onClose}
                   onError={setErr}
                 />
               )}
@@ -284,7 +285,15 @@ function ListView({
 
 // ─── New connector form (A2-style) ────────────────────────────────────────────
 
-function NewConnectorForm({ onSaved, onError }: { onSaved: () => void; onError: (m: string) => void }) {
+function NewConnectorForm({ 
+  onSaved, 
+  onCancel, 
+  onError 
+}: { 
+  onSaved: () => void; 
+  onCancel: () => void; 
+  onError: (m: string) => void 
+}) {
   const [type, setType] = useState<ConnectorTypeKey>('ADF');
   const [name, setName] = useState('');
   const [creds, setCreds] = useState<CredMap['ADF'] | CredMap['DATABRICKS'] | CredMap['GIT']>(EMPTY_CREDS.ADF);
@@ -374,7 +383,7 @@ function NewConnectorForm({ onSaved, onError }: { onSaved: () => void; onError: 
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#E5E7EB]">
         <button
           type="button"
-          onClick={() => onError('')}
+          onClick={onCancel}
           className="px-4 py-2 rounded-lg text-sm text-[#374151] hover:bg-[#F3F4F6] transition-colors"
         >
           Cancel
