@@ -83,7 +83,10 @@ export const api = {
     return req<Pipeline[]>(`/pipelines${q}`);
   },
   pipeline: (id: string) => req<Pipeline>(`/pipelines/${id}`),
-  run: (id: string) => req<Incident>(`/runs/${id}`),
+  run: (id: string) => req<any>(`/runs/${id}`),
+  runLogs: (id: string) => req<any[]>(`/runs/${id}/logs`),
+  runAnalysis: (id: string) => req<any>(`/runs/${id}/analysis`),
+  triggerRunAnalysis: (id: string) => req<any>(`/runs/${id}/analysis/trigger`, { method: "POST" }),
 
   incidents: () => req<Incident[]>("/incidents"),
   incident: (id: string) => req<Incident>(`/incidents/${id}`),
