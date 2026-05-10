@@ -126,9 +126,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })
       .catch(e => console.warn('Incidents fetch failed', e));
 
+    /* 
     api.agents()
       .then(agents => dispatch({ type: 'agents', payload: agents }))
-      .catch(e => console.warn('Agents fetch failed', e));
+      .catch(e => console.warn('Agents fetch failed', e)); 
+    */
   };
 
   // WebSocket lifecycle
@@ -203,15 +205,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Keep agent statuses fresh (poll once every 30s as a safety net)
   useEffect(() => {
+    /* 
     const t = window.setInterval(async () => {
       try {
         const agents = await api.agents();
         dispatch({ type: 'agents', payload: agents });
       } catch {
-        /* ignore */
+        // ignore 
       }
     }, 30000);
     return () => window.clearInterval(t);
+    */
   }, []);
 
   const triggerIncident = async () => {

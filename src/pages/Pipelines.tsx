@@ -9,14 +9,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ArrowLeft, Calendar, Database, Tag, User, X, RotateCw, Workflow, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Database, Tag, User, X, RotateCw, Workflow, PlayCircle, Filter } from 'lucide-react';
 import { Header } from '../components/Header';
 import { PipelineDAG } from '../components/PipelineDAG';
 import { PipelineStatusBadge } from '../components/Badges';
+import { ConnectorIcon } from '../components/ConnectorIcon';
 import { useStore } from '../hooks/useStore';
 import { api } from '../services/api';
-import { cn } from '../lib/utils';
-import type { Pipeline } from '../types';
+import { cn, timeAgo } from '../lib/utils';
+import type { Pipeline, Connector } from '../types';
 
 export function PipelinesPage() {
   const { state, refresh } = useStore();
@@ -26,6 +27,7 @@ export function PipelinesPage() {
   const [filter, setFilter] = useState<'ALL' | 'SUCCEEDED' | 'FAILED' | 'RUNNING' | 'QUEUED' | 'CANCELLED'>('ALL');
   const [search, setSearch] = useState('');
   const [localPipelines, setLocalPipelines] = useState<Pipeline[]>([]);
+  const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(false);
 
   const connectorId = searchParams.get('connector_id');
@@ -34,8 +36,12 @@ export function PipelinesPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await api.pipelines(connectorId ? { connector_id: connectorId } : {});
-        setLocalPipelines(data);
+        const [pData, cData] = await Promise.all([
+          api.pipelines(connectorId ? { connector_id: connectorId } : {}),
+          api.connectors()
+        ]);
+        setLocalPipelines(pData);
+        setConnectors(cData);
       } catch (e) {
         console.error(e);
       } finally {
@@ -45,18 +51,25 @@ export function PipelinesPage() {
     load();
   }, [connectorId]);
 
+  const connectorMap = useMemo(() => 
+    Object.fromEntries(connectors.map(c => [c.id, c])), 
+  [connectors]);
+
   const filtered = useMemo(() => {
     let list = localPipelines.length > 0 || connectorId ? localPipelines : state.pipelines;
     if (search) {
       list = list.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
     }
-    if (filter === 'ALL') return list;
-    if (filter === 'SUCCEEDED') return list.filter((p) => p.status === 'healthy');
-    if (filter === 'FAILED') return list.filter((p) => p.status !== 'healthy');
+    if (filter !== 'ALL') {
+      list = list.filter(p => {
+        const s = (p.last_run_status || p.status || "").toUpperCase();
+        return s === filter;
+      });
+    }
     return list;
   }, [state.pipelines, localPipelines, filter, connectorId, search]);
 
-  const selected = id ? (localPipelines.find(p => p.id === id) || state.pipelines.find((p) => p.id === id)) : null;
+  const selected = id ? (localPipelines.find(p => p.id === String(id)) || state.pipelines.find((p) => String(p.id) === String(id))) : null;
 
   if (selected) {
     return <PipelineDetail pipeline={selected} onBack={() => navigate('/app/pipelines')} />;
@@ -135,41 +148,49 @@ export function PipelinesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F3F4F6]">
-                {filtered.map((p) => (
-                  <tr key={p.id} className="hover:bg-[#F9FAFB] transition-colors group">
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-bold text-[#111827]">{p.name}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Workflow className="w-3.5 h-3.5 text-sky-600" />
-                        <span className="text-[11px] font-bold text-[#4B5563]">ID: {p.connector_id}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="inline-flex items-center gap-2 px-2 py-1 rounded border border-[#E5E7EB] bg-white">
-                        <div className={cn(
-                          "w-1.5 h-1.5 rounded-full",
-                          p.status === 'healthy' ? "bg-emerald-500" : "bg-red-500"
-                        )} />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-[#4B5563]">
-                          {p.status === 'healthy' ? 'SUCCEEDED' : 'FAILED'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-[11px] font-medium text-[#9CA3AF]">
-                      {p.last_run || 'never'}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => navigate(`/app/pipelines/${p.id}`)}
-                        className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] hover:text-[#111827] inline-flex items-center gap-1 transition-all"
-                      >
-                        view <PlayCircle className="w-3 h-3" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((p) => {
+                  const conn = connectorMap[p.connector_id];
+                  return (
+                    <tr key={p.id} className="hover:bg-[#F9FAFB] transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-[#111827] group-hover:text-blue-600 transition-colors">
+                            {p.name}
+                          </span>
+                          {p.description && (
+                            <span className="text-[10px] text-[#9CA3AF] font-medium mt-0.5 truncate max-w-xs">
+                              {p.description}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {conn ? (
+                          <div className="flex items-center gap-2">
+                            <ConnectorIcon type={conn.type} size={14} />
+                            <span className="text-[11px] font-bold text-[#4B5563]">{conn.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-[#9CA3AF]">ID: {p.connector_id}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <PipelineStatusBadge status={p.last_run_status || p.status} />
+                      </td>
+                      <td className="px-6 py-4 text-[11px] font-medium text-[#9CA3AF]">
+                        {timeAgo(p.last_run_at)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => navigate(`/app/pipelines/${p.id}`)}
+                          className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] hover:text-[#111827] inline-flex items-center gap-1 transition-all"
+                        >
+                          view <PlayCircle className="w-3 h-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -189,7 +210,7 @@ function PipelineDetail({ pipeline, onBack }: { pipeline: Pipeline; onBack: () =
     <>
       <Header
         title={pipeline.name}
-        subtitle={`${pipeline.owner} · ${pipeline.schedule}`}
+        subtitle={`${pipeline.owner || 'System'} · ${pipeline.schedule || 'Ad-hoc'}`}
         actions={
           <button
             onClick={onBack}
@@ -205,20 +226,20 @@ function PipelineDetail({ pipeline, onBack }: { pipeline: Pipeline; onBack: () =
           {/* Meta strip */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <MetaTile icon={<Database className="w-3.5 h-3.5" />} label="Status">
-              <PipelineStatusBadge status={pipeline.status} />
+              <PipelineStatusBadge status={pipeline.last_run_status || pipeline.status} />
             </MetaTile>
             <MetaTile icon={<User className="w-3.5 h-3.5" />} label="Owner">
-              <span className="text-sm font-medium">{pipeline.owner}</span>
+              <span className="text-sm font-medium">{pipeline.owner || '—'}</span>
             </MetaTile>
             <MetaTile icon={<Calendar className="w-3.5 h-3.5" />} label="Schedule">
-              <span className="font-mono text-[12px]">{pipeline.schedule}</span>
+              <span className="font-mono text-[12px]">{pipeline.schedule || 'manual'}</span>
             </MetaTile>
             <MetaTile icon={<Tag className="w-3.5 h-3.5" />} label="SLA">
-              <span className="text-sm font-medium">{pipeline.sla_minutes} min</span>
+              <span className="text-sm font-medium">{pipeline.sla_minutes || 0} min</span>
             </MetaTile>
             <MetaTile icon={<Database className="w-3.5 h-3.5" />} label="Throughput">
               <span className="text-sm font-medium tabular-nums">
-                {pipeline.throughput.toLocaleString()} msg/s
+                {(pipeline.throughput || 0).toLocaleString()} msg/s
               </span>
             </MetaTile>
           </div>

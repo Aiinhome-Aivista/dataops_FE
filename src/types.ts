@@ -63,6 +63,8 @@ export interface Pipeline {
   dag: DAGNode[];
   resource_metrics: ResourceMetric[];
   last_run_status?: string;
+  last_run_at?: string;
+  created_at?: string;
   tags: string[];
 }
 

@@ -118,7 +118,7 @@ export const api = {
       return r.json() as Promise<{ deleted: number; status: string }>;
     }),
 
-  agents: () => req<AgentStatus[]>("/agents"),
+  // agents: () => req<AgentStatus[]>("/agents"), // Disabled: Not needed for current version
 
   memory: (kind?: string) =>
     req<MemoryEntry[]>(`/memory${kind ? `?kind=${kind}` : ""}`),
