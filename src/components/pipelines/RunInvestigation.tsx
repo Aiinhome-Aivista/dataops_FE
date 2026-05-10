@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Header } from "../Header";
+import { Loading } from "../Loading";
 import { api } from "../../services/api";
 import { cn } from "../../lib/utils";
 import type { Pipeline } from "../../types";
@@ -82,16 +83,7 @@ export function RunInvestigation({
   });
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-[#F9FAFB]">
-        <div className="flex flex-col items-center gap-4">
-          <RotateCw className="w-8 h-8 text-blue-600 animate-spin" />
-          <p className="text-sm font-mono text-[#6B7280]">
-            extracting run forensics...
-          </p>
-        </div>
-      </div>
-    );
+    return <Loading message="analyzing run forensics..." />;
   }
 
   if (!run) {
@@ -112,26 +104,6 @@ export function RunInvestigation({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
-      <Header
-        title={`Run Forensic · ${String(runId).slice(0, 8)}`}
-        subtitle={`// PIPELINE: ${pipeline.name} · EXTERNAL_ID=${run.external_run_id}`}
-        actions={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={loadData}
-              className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#4B5563] hover:text-[#111827] flex items-center gap-2 transition-all"
-            >
-              <RefreshCw size={12} /> Refresh
-            </button>
-            <button
-              onClick={onBack}
-              className="bg-white border border-[#E5E7EB] px-3 py-1.5 rounded text-xs font-bold uppercase tracking-widest text-[#4B5563] hover:bg-gray-50 flex items-center gap-2 transition-all"
-            >
-              <ArrowLeft size={12} /> Back
-            </button>
-          </div>
-        }
-      />
 
       <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-6">

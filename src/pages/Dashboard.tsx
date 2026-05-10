@@ -33,6 +33,7 @@ import {
 } from "../components/Badges";
 import { ConnectorModal } from "../components/ConnectorModal";
 import { PipelineList } from "../components/PipelineList";
+import { Loading } from "../components/Loading";
 import { useStore } from "../hooks/useStore";
 import { api } from "../services/api";
 import type { Connector, HealthMetric, DashboardStats } from "../types";
@@ -41,10 +42,10 @@ import { formatTime, cn } from "../lib/utils";
 export function DashboardPage() {
   const { state, refresh } = useStore();
   const navigate = useNavigate();
-  const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const reload = async () => {
     refresh();
@@ -66,12 +67,7 @@ export function DashboardPage() {
     };
     loadStats();
 
-    try {
-      const hm = await api.metricsHealth();
-      setHealthMetrics(hm);
-    } catch {
-      /* ignore metrics failures */
-    }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -143,8 +139,11 @@ export function DashboardPage() {
         }
       />
 
-      <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-        <div className="space-y-10 max-w-7xl mx-auto">
+      {loading && !stats ? (
+        <Loading message="assembling control plane overview..." />
+      ) : (
+        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+          <div className="space-y-10 max-w-7xl mx-auto">
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             <StatCard
@@ -209,7 +208,7 @@ export function DashboardPage() {
                     no data yet
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={220}>
                     <PieChart>
                       <Pie
                         data={statusData}
@@ -269,7 +268,7 @@ export function DashboardPage() {
                     no connectors yet
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={220}>
                     <BarChart data={typeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <XAxis
                         dataKey="name"
@@ -370,7 +369,8 @@ export function DashboardPage() {
             />
           </div>
         </div>
-      </main>
+        </main>
+      )}
 
       <ConnectorModal
         open={showModal}

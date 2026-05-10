@@ -36,7 +36,7 @@ export function Sidebar() {
 
   const handleLogout = () => {
     auth.clearToken();
-    navigate('/');
+    window.location.href = '/';
   };
 
   return (

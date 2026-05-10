@@ -41,11 +41,18 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
       ...(init?.headers as Record<string, string> | undefined),
     };
     const tok = auth.getToken();
     if (tok) headers["Authorization"] = `Bearer ${tok}`;
-    const res = await fetch(`${BASE}${path}`, { ...init, headers });
+    const res = await fetch(`${BASE}${path}`, { 
+      ...init, 
+      headers,
+      cache: 'no-store'
+    });
     if (res.status === 401) {
       auth.clearToken();
       if (!path.startsWith("/auth")) {

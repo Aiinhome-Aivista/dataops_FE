@@ -36,6 +36,7 @@ import { ConnectorIcon } from "../components/ConnectorIcon";
 import { useStore } from "../hooks/useStore";
 import { api } from "../services/api";
 import { cn, timeAgo } from "../lib/utils";
+import { Loading } from "../components/Loading";
 import type { Pipeline, Connector } from "../types";
 
 export function PipelinesPage() {
@@ -133,70 +134,90 @@ export function PipelinesPage() {
       state.pipelines.find((p) => String(p.id) === String(id))
     : null;
 
-  if (id) {
-    if (loadingDetail) {
-      return (
-        <div className="flex-1 flex items-center justify-center bg-gray-50">
-          <div className="flex flex-col items-center gap-4">
-            <RotateCw className="w-8 h-8 text-blue-600 animate-spin" />
-            <p className="text-sm font-mono text-gray-500">
-              fetching pipeline architecture...
-            </p>
-          </div>
-        </div>
-      );
-    }
-    if (selectedPipeline) {
-      if (selectedRunId) {
-        return (
-          <RunInvestigation
-            runId={selectedRunId}
-            pipeline={selectedPipeline}
-            onBack={() => setSelectedRunId(null)}
-          />
-        );
-      }
-      return (
-        <PipelineDetail
-          pipeline={selectedPipeline}
-          onBack={() => navigate("/app/pipelines")}
-          onViewRun={(rid) => setSelectedRunId(rid)}
-        />
-      );
-    }
-    return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-sm text-gray-500 mb-4">
-            Pipeline not found or error loading details.
-          </p>
-          <button
-            onClick={() => navigate("/app/pipelines")}
-            className="btn-secondary"
-          >
-            Back to Catalog
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <>
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
       <Header
-        title="Pipelines"
-        subtitle="Synced from connected accounts"
+        title={
+          selectedRunId 
+            ? `Run Forensic · ${String(selectedRunId).slice(0, 8)}` 
+            : selectedPipeline 
+              ? selectedPipeline.name 
+              : "Pipelines"
+        }
+        subtitle={
+          selectedRunId
+            ? `// INVESTIGATION · PIPELINE: ${selectedPipeline?.name}`
+            : selectedPipeline
+              ? `// ARCHITECTURE · ID=${selectedPipeline.id}`
+              : "Synced from connected accounts"
+        }
         actions={
-          <button
-            onClick={refresh}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm"
-          >
-            <RotateCw className="w-3 h-3 text-[#6B7280]" />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            {!id && (
+              <button
+                onClick={refresh}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm"
+              >
+                <RotateCw className="w-3 h-3 text-[#6B7280]" />
+                Refresh
+              </button>
+            )}
+            {selectedRunId && (
+              <button
+                onClick={() => setSelectedRunId(null)}
+                className="bg-white border border-[#E5E7EB] px-3 py-1.5 rounded text-xs font-bold uppercase tracking-widest text-[#4B5563] hover:bg-gray-50 flex items-center gap-2 transition-all"
+              >
+                <ArrowLeft size={12} /> Back to Pipeline
+              </button>
+            )}
+            {id && !selectedRunId && (
+              <button
+                onClick={() => navigate("/app/pipelines")}
+                className="bg-white border border-[#E5E7EB] px-3 py-1.5 rounded text-xs font-bold uppercase tracking-widest text-[#4B5563] hover:bg-gray-50 flex items-center gap-2 transition-all"
+              >
+                <ArrowLeft size={12} /> Catalog
+              </button>
+            )}
+          </div>
         }
       />
-      <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {id ? (
+          loadingDetail ? (
+            <Loading message="fetching pipeline architecture..." />
+          ) : selectedPipeline ? (
+            selectedRunId ? (
+              <RunInvestigation
+                runId={selectedRunId}
+                pipeline={selectedPipeline}
+                onBack={() => setSelectedRunId(null)}
+              />
+            ) : (
+              <PipelineDetail
+                pipeline={selectedPipeline}
+                onBack={() => navigate("/app/pipelines")}
+                onViewRun={(rid) => setSelectedRunId(rid)}
+              />
+            )
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-sm text-gray-500 mb-4">
+                  Pipeline not found or error loading details.
+                </p>
+                <button
+                  onClick={() => navigate("/app/pipelines")}
+                  className="btn-secondary"
+                >
+                  Back to Catalog
+                </button>
+              </div>
+            </div>
+          )
+        ) : (
+          <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+          {/* ... Catalog List Content ... */}
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Filters & Search */}
           <div className="flex items-center gap-4 bg-white border border-[#E5E7EB] p-3 rounded-lg shadow-sm">
@@ -325,8 +346,10 @@ export function PipelinesPage() {
             </table>
           </div>
         </div>
-      </main>
-    </>
+        </main>
+      )}
+      </div>
+    </div>
   );
 }
 

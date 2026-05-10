@@ -85,26 +85,6 @@ export function PipelineDetail({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
-      <Header
-        title={pipeline.name}
-        subtitle={`// PIPELINE · ID=${pipeline.id}`}
-        actions={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.location.reload()}
-              className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#4B5563] hover:text-[#111827] flex items-center gap-2 transition-all"
-            >
-              <RefreshCw size={12} /> Refresh
-            </button>
-            <button
-              onClick={onBack}
-              className="bg-white border border-[#E5E7EB] px-3 py-1.5 rounded text-xs font-bold uppercase tracking-widest text-[#4B5563] hover:bg-gray-50 flex items-center gap-2 transition-all"
-            >
-              <ArrowLeft size={12} /> Catalog
-            </button>
-          </div>
-        }
-      />
 
       <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-6">
