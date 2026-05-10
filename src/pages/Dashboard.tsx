@@ -265,24 +265,25 @@ export function DashboardPage() {
               </div>
               <div className="h-[220px]">
                 {typeData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-xs text-[#9CA3AF] italic">
+                  <div className="h-full flex items-center justify-center text-xs text-[#9CA3AF] italic font-mono">
                     no connectors yet
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={typeData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                    <BarChart data={typeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <XAxis
                         dataKey="name"
                         stroke="#9CA3AF"
-                        fontSize={10}
+                        fontSize={11}
+                        fontFamily="JetBrains Mono, monospace"
                         tickLine={false}
                         axisLine={false}
                         dy={8}
                       />
                       <YAxis
                         stroke="#9CA3AF"
-                        fontSize={10}
+                        fontSize={11}
+                        fontFamily="JetBrains Mono, monospace"
                         tickLine={false}
                         axisLine={false}
                         dx={-8}
@@ -292,12 +293,13 @@ export function DashboardPage() {
                         contentStyle={{
                           backgroundColor: "#FFFFFF",
                           border: "1px solid #E5E7EB",
-                          borderRadius: 4,
-                          fontSize: 11,
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontFamily: "JetBrains Mono, monospace",
                         }}
-                        cursor={{ fill: '#F9FAFB' }}
+                        cursor={{ fill: 'rgba(0,0,0,0.02)' }}
                       />
-                      <Bar dataKey="value" fill="#3B82F6" radius={[4, 4, 0, 0]} barSize={32} />
+                      <Bar dataKey="value" fill="#3B82F6" radius={[4, 4, 0, 0]} barSize={60} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
