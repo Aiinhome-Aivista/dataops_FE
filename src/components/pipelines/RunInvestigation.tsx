@@ -68,7 +68,8 @@ export function RunInvestigation({
   const triggerAnalysis = async () => {
     setAnalyzing(true);
     try {
-      const result = await api.triggerRunAnalysis(runId);
+      // If we already have analysis, we want to force re-analysis
+      const result = await api.triggerRunAnalysis(runId, !!analysis);
       setAnalysis(result);
     } catch (e) {
       console.error("Analysis failed", e);

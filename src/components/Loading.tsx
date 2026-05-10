@@ -7,17 +7,17 @@ interface LoadingProps {
   className?: string;
 }
 
-export function Loading({ 
-  message = "Loading data...", 
+export function Loading({
+  message = "Loading data...",
   fullPage = false,
-  className 
+  className,
 }: LoadingProps) {
   return (
-    <div 
+    <div
       className={cn(
         "flex flex-col items-center justify-center gap-4",
-        fullPage ? "fixed inset-0 bg-[#F9FAFB] z-[9998]" : "flex-1 min-h-[200px]",
-        className
+        fullPage ? "fixed inset-0 bg-[#F9FAFB] z-9998" : "flex-1 min-h-[200px]",
+        className,
       )}
     >
       <div className="relative">
