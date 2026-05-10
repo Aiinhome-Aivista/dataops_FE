@@ -119,12 +119,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .then(pipelines => dispatch({ type: 'pipelines', payload: pipelines }))
       .catch(e => console.warn('Pipelines fetch failed', e));
 
-    api.incidents()
-      .then(incidents => {
-        // Handle incidents list
-        incidents.forEach(incident => dispatch({ type: 'incident', payload: incident }));
-      })
-      .catch(e => console.warn('Incidents fetch failed', e));
 
     /* 
     api.agents()
@@ -143,7 +137,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (cancelled) return;
+        if (cancelled) {
+          ws.close();
+          return;
+        }
         dispatch({ type: 'connected', payload: true });
       };
       ws.onclose = () => {
@@ -199,7 +196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       if (reconnectTimerRef.current) window.clearTimeout(reconnectTimerRef.current);
-      if (wsRef.current && wsRef.current.readyState < 2) {
+      if (wsRef.current && wsRef.current.readyState === 1) {
         wsRef.current.close();
       }
     };
