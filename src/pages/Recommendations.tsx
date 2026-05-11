@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Lightbulb, RefreshCcw, Check, X } from 'lucide-react';
-import { Header } from '../components/Header';
 import { api } from '../services/api';
 import { cn, timeAgo } from '../lib/utils';
 import type { Recommendation } from '../types';
@@ -42,20 +41,6 @@ export function RecommendationsPage() {
 
   return (
     <>
-      <Header
-        title="Optimization"
-        subtitle="Long-horizon recommendations · advisory only"
-        actions={
-          <button
-            onClick={regen}
-            disabled={busy}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all disabled:opacity-50"
-          >
-            <RefreshCcw className={cn('w-3 h-3', busy && 'animate-spin')} />
-            Regenerate
-          </button>
-        }
-      />
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="grid grid-cols-3 gap-4">

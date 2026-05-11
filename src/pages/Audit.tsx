@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, Download, RefreshCcw } from 'lucide-react';
-import { Header } from '../components/Header';
 import { LiveLogStream } from '../components/LiveLogStream';
 import { useStore } from '../hooks/useStore';
 import { api } from '../services/api';
@@ -73,29 +72,6 @@ export function AuditPage() {
 
   return (
     <>
-      <Header
-        title="Audit Trail"
-        subtitle="Immutable decision log · every agent step, every tool call"
-        actions={
-          <>
-            <button
-              onClick={exportJson}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all"
-            >
-              <Download className="w-3 h-3" />
-              Export
-            </button>
-            <button
-              onClick={reload}
-              disabled={busy}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all"
-            >
-              <RefreshCcw className={cn('w-3 h-3', busy && 'animate-spin')} />
-              Refresh
-            </button>
-          </>
-        }
-      />
       <main className="flex-1 overflow-hidden flex flex-col">
         <div className="px-10 py-6 border-b border-[#E5E7EB] bg-white flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1">

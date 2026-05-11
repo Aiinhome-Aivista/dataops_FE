@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, Brain, BookOpen, Layers, ArrowRight } from 'lucide-react';
-import { Header } from '../components/Header';
 import { api } from '../services/api';
 import { cn, timeAgo } from '../lib/utils';
 import type { MemoryEntry } from '../types';
@@ -64,10 +63,6 @@ export function MemoryPage() {
 
   return (
     <>
-      <Header
-        title="Memory"
-        subtitle="Three-tier · episodic / procedural / semantic"
-      />
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Tier selector */}

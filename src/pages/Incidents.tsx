@@ -16,7 +16,6 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
-import { Header } from '../components/Header';
 import { LiveLogStream } from '../components/LiveLogStream';
 import { RiskBadge, StatusBadge } from '../components/Badges';
 import { PipelineDAG } from '../components/PipelineDAG';
@@ -75,44 +74,6 @@ export function IncidentsPage() {
 
   return (
     <>
-      <Header
-        title="Incident Loop"
-        subtitle="Hierarchical agent run · Observe → Reason → Plan → Act → Evaluate → Learn"
-        actions={
-          <div className="relative">
-            <button
-              onClick={() => setClearMenu((v) => !v)}
-              disabled={clearing}
-              className="flex items-center gap-2 px-4 py-2 border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB] text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all disabled:opacity-50"
-            >
-              {clearing ? 'Clearing…' : 'Clear ▾'}
-            </button>
-            {clearMenu && (
-              <div className="absolute right-0 mt-1 w-48 bg-white border border-[#E5E7EB] rounded-md shadow-md z-10">
-                <button
-                  onClick={() => clear('closed')}
-                  className="block w-full text-left px-3 py-2 text-xs hover:bg-[#F9FAFB] text-[#374151]"
-                >
-                  Clear closed
-                </button>
-                <button
-                  onClick={() => clear('open')}
-                  className="block w-full text-left px-3 py-2 text-xs hover:bg-[#F9FAFB] text-[#374151]"
-                >
-                  Clear open
-                </button>
-                <button
-                  onClick={() => clear('all')}
-                  className="block w-full text-left px-3 py-2 text-xs hover:bg-red-50 text-red-700 border-t border-[#E5E7EB]"
-                >
-                  Clear ALL incidents
-                </button>
-              </div>
-            )}
-          </div>
-        }
-      />
-
       <main className="flex-1 overflow-hidden flex">
         {/* Incident sidebar */}
         <div className="w-[340px] border-r border-[#E5E7EB] bg-white flex flex-col shrink-0">

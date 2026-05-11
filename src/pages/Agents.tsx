@@ -10,7 +10,6 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
-import { Header } from '../components/Header';
 import { LiveLogStream } from '../components/LiveLogStream';
 import { useStore } from '../hooks/useStore';
 import { api } from '../services/api';
@@ -48,10 +47,6 @@ export function AgentsPage() {
 
   return (
     <>
-      <Header
-        title="Agent Mesh"
-        subtitle="Hierarchical multi-agent runtime · LangGraph-style dispatch"
-      />
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-10">
           {/* Mesh diagram */}
