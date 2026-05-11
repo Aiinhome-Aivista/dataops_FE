@@ -50,6 +50,7 @@ export function AgentsPage() {
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-10">
           {/* Mesh diagram */}
+          {/* 
           <section className="bg-white border border-[#E5E7EB] rounded-lg p-10 grid-backdrop">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -64,10 +65,8 @@ export function AgentsPage() {
             </div>
 
             <div className="flex flex-col items-center gap-12">
-              {/* Orchestrator */}
               {orchestrator && <AgentNode agent={orchestrator} hero />}
 
-              {/* Connector lines */}
               <div className="relative w-full max-w-4xl">
                 <div
                   className="absolute left-1/2 -top-12 -translate-x-1/2 w-px h-12 dag-line"
@@ -75,7 +74,6 @@ export function AgentsPage() {
                 />
               </div>
 
-              {/* Sub-agents */}
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 w-full max-w-5xl">
                 {subAgents.map((a) => (
                   <AgentNode key={a.role} agent={a} />
@@ -83,8 +81,10 @@ export function AgentsPage() {
               </div>
             </div>
           </section>
+          */}
 
           {/* Per-agent detail */}
+          {/* 
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white border border-[#E5E7EB] rounded-lg p-7">
               <h4 className="text-sm font-semibold mb-1">Live Reasoning Stream</h4>
@@ -97,6 +97,7 @@ export function AgentsPage() {
                 />
               </div>
             </div>
+            */}
 
             <div className="bg-white border border-[#E5E7EB] rounded-lg p-7">
               <h4 className="text-sm font-semibold mb-1">Tool Registry</h4>
@@ -136,9 +137,9 @@ export function AgentsPage() {
                 ))}
               </div>
             </div>
-          </section>
+          {/* </section> */}
 
-          {/* Guardrail framework */}
+          {/* 
           <section className="bg-white border border-[#E5E7EB] rounded-lg p-8">
             <div className="flex items-center gap-2 mb-6">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -167,6 +168,7 @@ export function AgentsPage() {
               ))}
             </div>
           </section>
+          */}
         </div>
       </main>
     </>

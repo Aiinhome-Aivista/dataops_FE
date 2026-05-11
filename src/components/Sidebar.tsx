@@ -22,10 +22,10 @@ const NAV = [
   { to: "/app", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/app/connectors", icon: Plug, label: "Connectors" },
   { to: "/app/pipelines", icon: Database, label: "Pipelines" },
-  { to: "/app/incidents", icon: ShieldAlert, label: "Incident Loop" },
+  // { to: "/app/incidents", icon: ShieldAlert, label: "Incident Loop" },
   { to: "/app/agents", icon: Brain, label: "Agent Mesh" },
   { to: "/app/memory", icon: History, label: "Memory" },
-  { to: "/app/recommendations", icon: Lightbulb, label: "Optimize" },
+  // { to: "/app/recommendations", icon: Lightbulb, label: "Optimize" },
   { to: "/app/audit", icon: Wrench, label: "Audit Trail" },
 ];
 
@@ -72,7 +72,6 @@ export function Sidebar() {
           isCollapsed ? "items-center" : "",
         )}
       >
-
         <nav className="space-y-1">
           {NAV.map((item) => (
             <NavLink
