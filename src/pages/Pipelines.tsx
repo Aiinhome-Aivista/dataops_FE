@@ -248,8 +248,33 @@ export function PipelinesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F3F4F6]">
-                {filtered.map((p) => {
-                  const conn = connectorMap[p.connector_id];
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-20 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
+                          <Database className="w-6 h-6 text-gray-300" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">No pipelines found</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {connectorId ? `No pipelines are currently associated with connector ID: ${connectorId}` : "Try adjusting your search or filters to find what you're looking for."}
+                          </p>
+                        </div>
+                        {connectorId && (
+                          <button 
+                            onClick={() => setSearchParams({})}
+                            className="mt-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800"
+                          >
+                            Clear Filter
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((p) => {
+                    const conn = connectorMap[p.connector_id];
                   return (
                     <tr
                       key={p.id}
@@ -299,7 +324,8 @@ export function PipelinesPage() {
                       </td>
                     </tr>
                   );
-                })}
+                })
+              )}
               </tbody>
             </table>
           </div>
