@@ -197,6 +197,16 @@ export const api = {
   metricsHealth: () => req<HealthMetric[]>("/metrics/health"),
   metricsSummary: () => req<MetricsSummary>("/metrics/summary"),
   stats: () => req<DashboardStats>("/dashboard/stats"),
+
+  connectAWSGlue: (credentials: {
+    aws_access_key_id: string;
+    aws_secret_access_key: string;
+    region_name: string;
+  }) =>
+    req<any>("/aws-glue/connect", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    }),
 };
 
 export function wsUrl(): string {
