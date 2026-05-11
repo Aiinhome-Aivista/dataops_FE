@@ -7,9 +7,10 @@ interface Props {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  onConnect?: () => void;
 }
 
-export function Header({ title, subtitle, actions }: Props) {
+export function Header({ title, subtitle, actions, onConnect }: Props) {
   const { state } = useStore();
   const activeAgents = state.agents.filter((a) => a.status === 'thinking').length;
   const activePipelines = state.pipelines.length;
@@ -72,7 +73,10 @@ export function Header({ title, subtitle, actions }: Props) {
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm">
+        <button 
+          onClick={onConnect}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm"
+        >
           <Plus className="w-3 h-3 text-[#6B7280]" />
           Connect Source
         </button>

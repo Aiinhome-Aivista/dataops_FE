@@ -23,8 +23,9 @@ import type { Connector } from "../types";
 interface Props {
   open: boolean;
   onClose: () => void;
-  connectors: Connector[];
-  onChange: () => void;
+  onSuccess?: () => void;
+  connectors?: Connector[];
+  onChange?: () => void;
   initialView?: View;
 }
 
@@ -144,6 +145,7 @@ type View = "list" | "new";
 export function ConnectorModal({
   open,
   onClose,
+  onSuccess,
   connectors,
   onChange,
   initialView,
@@ -152,22 +154,46 @@ export function ConnectorModal({
   const [view, setView] = useState<View>("list");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [internalConnectors, setInternalConnectors] = useState<Connector[]>([]);
+  const [loading, setLoading] = useState(false);
   const [testResults, setTestResults] = useState<
     Record<string, { status: string; detail: string }>
   >({});
+
+  const fetchConnectors = async () => {
+    setLoading(true);
+    try {
+      const data = await api.connectors();
+      setInternalConnectors(data);
+    } catch (e: any) {
+      setErr(e.message || "Failed to load connectors");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
       setView(initialView ?? "list");
       setErr(null);
+      if (!connectors) {
+        fetchConnectors();
+      }
     }
-  }, [open, initialView]);
+  }, [open, initialView, connectors]);
+
+  const activeConnectors = connectors || internalConnectors;
+  const onDataChange = () => {
+    onChange?.();
+    if (!connectors) fetchConnectors();
+  };
 
   const remove = async (c: Connector) => {
     setBusy(c.id);
     try {
       await api.deleteConnector(c.id);
-      onChange();
+      onDataChange();
+      onSuccess?.();
     } catch (e: any) {
       setErr(e.message || "delete failed");
     } finally {
@@ -180,7 +206,7 @@ export function ConnectorModal({
     try {
       const r = await api.testConnector(c.id);
       setTestResults((s) => ({ ...s, [c.id]: r }));
-      onChange();
+      onDataChange();
     } catch (e: any) {
       setTestResults((s) => ({
         ...s,
@@ -250,7 +276,8 @@ export function ConnectorModal({
             <div className="flex-1 overflow-y-auto">
               {view === "list" && (
                 <ListView
-                  connectors={connectors}
+                  connectors={activeConnectors}
+                  loading={loading && activeConnectors.length === 0}
                   busy={busy}
                   testResults={testResults}
                   onAdd={() => {
@@ -268,7 +295,8 @@ export function ConnectorModal({
               {view === "new" && (
                 <NewConnectorForm
                   onSaved={() => {
-                    onChange();
+                    onDataChange();
+                    onSuccess?.();
                     setView("list");
                   }}
                   onCancel={onClose}
@@ -287,6 +315,7 @@ export function ConnectorModal({
 
 function ListView({
   connectors,
+  loading,
   busy,
   testResults,
   onAdd,
@@ -295,6 +324,7 @@ function ListView({
   onViewPipelines,
 }: {
   connectors: Connector[];
+  loading?: boolean;
   busy: string | null;
   testResults: Record<string, { status: string; detail: string }>;
   onAdd: () => void;
@@ -317,12 +347,16 @@ function ListView({
         </button>
       </div>
 
-      {connectors.length === 0 && (
+      {loading ? (
+        <p className="text-sm text-[#6B7280] py-8 text-center animate-pulse">
+          Loading connectors...
+        </p>
+      ) : connectors.length === 0 ? (
         <p className="text-sm text-[#6B7280] py-8 text-center">
           No connectors yet. Click{" "}
           <span className="font-medium">Add connector</span> to get started.
         </p>
-      )}
+      ) : (
 
       <div className="space-y-3">
         {connectors.map((conn) => {
@@ -388,10 +422,11 @@ function ListView({
                 */}
               </div>
             </div>
-          );
-        })}
-      </div>
+        );
+      })}
     </div>
+  )}
+</div>
   );
 }
 

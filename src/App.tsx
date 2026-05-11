@@ -15,6 +15,8 @@ import { LandingPage } from './pages/Landing';
 import { auth } from './services/api';
 import { GlobalLoader } from './components/GlobalLoader';
 import { Header } from './components/Header';
+import { ConnectorModal } from './components/ConnectorModal';
+import { useState } from 'react';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const loc = useLocation();
@@ -61,6 +63,8 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
 
 function Shell() {
   const { pathname } = useLocation();
+  const [showConnectorModal, setShowConnectorModal] = useState(false);
+
   // Find the closest match in PAGE_META
   const currentPath = Object.keys(PAGE_META)
     .sort((a, b) => b.length - a.length)
@@ -71,8 +75,24 @@ function Shell() {
   return (
     <StoreProvider>
       <GlobalLoader />
+      {showConnectorModal && (
+        <ConnectorModal
+          open={showConnectorModal}
+          onClose={() => setShowConnectorModal(false)}
+          initialView="list"
+          onSuccess={() => {
+            setShowConnectorModal(false);
+            // Refresh logic can be added here if needed
+            window.location.reload(); // Simple way to refresh all data
+          }}
+        />
+      )}
       <div className="flex flex-col h-screen bg-[#F9FAFB] text-[#111827] overflow-hidden">
-        <Header title={meta.title} subtitle={meta.subtitle} />
+        <Header 
+          title={meta.title} 
+          subtitle={meta.subtitle} 
+          onConnect={() => setShowConnectorModal(true)} 
+        />
         <div className="flex-1 flex overflow-hidden">
           <Sidebar />
           <main className="flex-1 flex flex-col overflow-hidden min-w-0">
