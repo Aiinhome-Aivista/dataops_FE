@@ -493,7 +493,7 @@ function NewConnectorForm({
   };
 
   return (
-    <form onSubmit={onSubmit} className="p-6 space-y-5">
+    <form onSubmit={onSubmit} className="p-6 space-y-5" autoComplete="off">
       {/* Type selector */}
       <div>
         <label className="block text-xs uppercase tracking-wide text-[#6B7280] font-semibold mb-2">
@@ -641,6 +641,7 @@ function ADFForm({
           <input
             className={inputCls}
             type="password"
+            autoComplete="new-password"
             value={creds.client_secret}
             onChange={(e) => update("client_secret", e.target.value)}
             required
@@ -696,6 +697,7 @@ function DatabricksForm({
         <input
           className={inputCls}
           type="password"
+          autoComplete="new-password"
           value={creds.personal_access_token}
           onChange={(e) => update("personal_access_token", e.target.value)}
           required
@@ -755,6 +757,7 @@ function GitForm({
         <input
           className={inputCls}
           type="password"
+          autoComplete="new-password"
           value={creds.token}
           onChange={(e) => update("token", e.target.value)}
           required
@@ -793,6 +796,7 @@ function GlueForm({
           <input
             className={inputCls}
             type="password"
+            autoComplete="new-password"
             value={creds.aws_secret_access_key}
             onChange={(e) => update("aws_secret_access_key", e.target.value)}
             placeholder="Enter secret key"

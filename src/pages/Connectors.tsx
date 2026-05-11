@@ -53,6 +53,8 @@ export function ConnectorsPage() {
 
   useEffect(() => {
     reload();
+    window.addEventListener('connectors-updated', reload);
+    return () => window.removeEventListener('connectors-updated', reload);
   }, []);
 
   const handleTest = async (id: string) => {

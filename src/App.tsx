@@ -81,9 +81,11 @@ function Shell() {
           onClose={() => setShowConnectorModal(false)}
           initialView="list"
           onSuccess={() => {
-            setShowConnectorModal(false);
-            // Refresh logic can be added here if needed
-            window.location.reload(); // Simple way to refresh all data
+            // Signal to other components (like the Connectors page) that data has changed
+            // Using a tiny timeout to ensure the background page is ready to process the signal
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('connectors-updated'));
+            }, 100);
           }}
         />
       )}
