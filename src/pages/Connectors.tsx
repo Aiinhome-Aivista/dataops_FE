@@ -12,6 +12,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { ConnectorModal } from "../components/ConnectorModal";
+import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 import { api } from "../services/api";
 import type { Connector } from "../types";
 import { cn, timeAgo } from "../lib/utils";
@@ -46,6 +47,7 @@ export function ConnectorsPage() {
   const [open, setOpen] = useState(false);
   const [openOnNew, setOpenOnNew] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const reload = async () => setConnectors(await api.connectors());
 
@@ -77,12 +79,17 @@ export function ConnectorsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this connector?")) return;
-    setBusy(id + "-delete");
+  const handleDelete = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    setBusy(deleteId + "-delete");
     try {
-      await api.deleteConnector(id);
+      await api.deleteConnector(deleteId);
       await reload();
+      setDeleteId(null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -257,6 +264,12 @@ export function ConnectorsPage() {
         connectors={connectors}
         onChange={reload}
         initialView={openOnNew ? "new" : "list"}
+      />
+      <DeleteConfirmModal
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={confirmDelete}
+        busy={!!busy && busy.endsWith("-delete")}
       />
     </>
   );
