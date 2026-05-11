@@ -208,7 +208,7 @@ export function DashboardPage() {
                     no data yet
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%" minHeight={220}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                     <PieChart>
                       <Pie
                         data={statusData}
@@ -268,7 +268,7 @@ export function DashboardPage() {
                     no connectors yet
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%" minHeight={220}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                     <BarChart data={typeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <XAxis
                         dataKey="name"

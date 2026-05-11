@@ -10,6 +10,13 @@ import {
   Sparkles,
   Terminal,
   Wrench,
+  Activity,
+  CheckCircle2,
+  Clock,
+  Database,
+  Info,
+  List,
+  User,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Header } from "../Header";
@@ -134,7 +141,11 @@ export function RunInvestigation({
                 disabled={analyzing}
                 className="flex items-center gap-2 px-4 py-2 bg-[#111827] text-white text-[10px] font-bold uppercase tracking-[0.15em] rounded hover:bg-black transition-all shadow-sm disabled:opacity-50"
               >
-                <Brain size={14} className={analyzing ? "animate-pulse" : ""} />
+                {analyzing ? (
+                  <RotateCw size={14} className="animate-spin" />
+                ) : (
+                  <Brain size={14} />
+                )}
                 {analysis ? "Re-analyze" : "Analyze Failure"}
               </button>
             )}
@@ -183,8 +194,13 @@ export function RunInvestigation({
                 <button
                   onClick={triggerAnalysis}
                   disabled={analyzing}
-                  className="px-4 py-2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-blue-700 transition-all shadow-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-blue-700 transition-all shadow-sm"
                 >
+                  {analyzing ? (
+                    <RotateCw size={14} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
                   Run AI Diagnosis
                 </button>
               </div>
@@ -275,6 +291,280 @@ export function RunInvestigation({
   );
 }
 
+function repairJson(jsonStr: string) {
+  let repaired = jsonStr.trim();
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < repaired.length; i++) {
+    const char = repaired[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '{') stack.push('}');
+      else if (char === '[') stack.push(']');
+      else if (char === '}' || char === ']') {
+        if (stack.length > 0 && stack[stack.length - 1] === char) {
+          stack.pop();
+        }
+      }
+    }
+  }
+
+  if (inString) repaired += '"';
+  
+  // Remove trailing comma if it exists after repair (e.g., from truncated object)
+  repaired = repaired.replace(/,\s*$/, "");
+
+  while (stack.length > 0) {
+    repaired += stack.pop();
+  }
+
+  return repaired;
+}
+
+function parseRootCause(rootCause: string) {
+  try {
+    // Extract JSON from markdown code block if present
+    const jsonStr = rootCause.replace(/```json\n?/, "").replace(/```\n?$/, "").trim();
+    
+    try {
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      // If parsing fails, try to repair truncated JSON
+      const repaired = repairJson(jsonStr);
+      return JSON.parse(repaired);
+    }
+  } catch (e) {
+    return null;
+  }
+}
+function StructuredAnalysis({ data }: { data: any }) {
+  const renderValue = (val: any, fallback: string = "N/A") => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === "object") {
+      if (val.name && typeof val.name === "string") return val.name;
+      if (val.id && typeof val.id === "string") return val.id;
+      return JSON.stringify(val);
+    }
+    return String(val);
+  };
+
+  // Normalized data mapping for resilience
+  const metadata = data.metadata || data.error?.metadata || {};
+  const creator = metadata.creator_user_name || "System";
+  const task = data.error?.task || metadata.failed_tasks?.[0] || "N/A";
+  const severity = data.additional_context?.severity || data.severity || "normal";
+  
+  // Normalize recommended actions into a flat array
+  let actions = [];
+  if (Array.isArray(data.recommended_actions)) {
+    actions = data.recommended_actions;
+  } else if (typeof data.recommended_actions === "object" && data.recommended_actions !== null) {
+    actions = Object.values(data.recommended_actions).flat();
+  }
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      {/* Overview Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+            <Database size={12} className="text-blue-500" /> Source
+          </div>
+          <div className="text-sm font-bold text-[#111827]">{renderValue(data.source)}</div>
+          <div className="text-[10px] font-medium text-[#6B7280] mt-1 truncate">{renderValue(data.pipeline, "Unknown Pipeline")}</div>
+        </div>
+
+        <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+            <Activity size={12} className="text-amber-500" /> Task
+          </div>
+          <div className="text-sm font-bold text-[#111827] truncate">{renderValue(task)}</div>
+          <div className="text-[10px] font-medium text-rose-600 mt-1 uppercase tracking-tighter">{renderValue(data.error?.status || data.status, "FAILED")}</div>
+        </div>
+
+        <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+            <User size={12} className="text-emerald-500" /> Creator
+          </div>
+          <div className="text-sm font-bold text-[#111827] truncate">
+            {renderValue(creator).split("@")[0]}
+          </div>
+          <div className="text-[10px] font-medium text-[#6B7280] mt-1 truncate">{renderValue(creator)}</div>
+        </div>
+
+        <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+            <Info size={12} className="text-purple-500" /> Severity
+          </div>
+          <div className={cn(
+            "inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border",
+            severity === "high" 
+              ? "bg-rose-50 text-rose-600 border-rose-100" 
+              : "bg-amber-50 text-amber-600 border-amber-100"
+          )}>
+            {renderValue(severity, "Normal")}
+          </div>
+        </div>
+      </div>
+
+      {/* Error Details Section */}
+      <div className="bg-rose-50/30 border border-rose-100 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-5 py-3 border-b border-rose-100 bg-rose-50/50 flex items-center gap-2">
+          <AlertTriangle size={14} className="text-rose-600" />
+          <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Deep Error Analysis</span>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Incident Summary</div>
+            <div className="text-sm font-mono text-[#111827] bg-white border border-rose-100 p-4 rounded-xl shadow-inner leading-relaxed">
+              {renderValue(data.error?.top_level_error || data.summary, "No top-level error message provided.")}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Contextual Findings</div>
+            {typeof data.error?.detailed_error === "object" && data.error.detailed_error !== null ? (
+              <div className="space-y-3">
+                <div className="text-sm text-[#4B5563] leading-relaxed italic">
+                  {renderValue(data.error.detailed_error.message || data.error.detailed_error.error || "No detailed message provided.")}
+                </div>
+                {data.error.detailed_error.logs && (
+                  <div className="bg-[#111827] text-gray-400 p-3 rounded-lg font-mono text-[10px] overflow-x-auto border border-[#1F2937] shadow-inner">
+                    <div className="text-[8px] font-bold text-[#4B5563] uppercase tracking-widest mb-2 border-b border-[#1F2937] pb-1">Technical Logs</div>
+                    {data.error.detailed_error.logs}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-[#4B5563] leading-relaxed italic">
+                {renderValue(data.error?.detailed_error, "No detailed explanation available.")}
+              </div>
+            )}
+            
+            {/* Render structured error logs if they exist at error.logs level */}
+            {Array.isArray(data.error?.logs) && data.error.logs.length > 0 && (
+              <div className="mt-4 bg-[#111827] rounded-xl overflow-hidden border border-[#1F2937] shadow-lg">
+                <div className="px-4 py-2 border-b border-[#1F2937] bg-[#1F2937]/30 flex items-center gap-2">
+                  <Terminal size={10} className="text-blue-400" />
+                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Forensic Log Extract</span>
+                </div>
+                <div className="p-4 space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                  {data.error.logs.map((log: any, lIdx: number) => (
+                    <div key={lIdx} className="flex gap-3 font-mono text-[10px] group">
+                      <span className="text-[#4B5563] shrink-0">{log.timestamp?.split('T')[1] || "LOG"}</span>
+                      <span className={cn(
+                        "shrink-0 font-bold",
+                        log.level === 'ERROR' ? 'text-rose-500' : 'text-blue-500'
+                      )}>[{log.level}]</span>
+                      <span className="text-gray-300 leading-relaxed">{log.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Recommended Actions Section */}
+      {actions.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">
+            <Wrench size={14} className="text-blue-600" /> Forensic Recommendations
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+            {actions.map((action: any, idx: number) => (
+              <div key={idx} className="group bg-white border border-[#E5E7EB] rounded-2xl shadow-sm hover:border-blue-200 hover:shadow-md transition-all duration-300">
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-[#111827]">{renderValue(action.action, "Recommended Action")}</h4>
+                        <p className="text-[11px] text-[#6B7280]">{renderValue(action.description)}</p>
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest border transition-all",
+                      action.priority === "high" 
+                        ? "bg-rose-50 text-rose-600 border-rose-100 shadow-sm shadow-rose-100" 
+                        : action.priority === "medium"
+                        ? "bg-amber-50 text-amber-600 border-amber-100"
+                        : "bg-[#F9FAFB] text-[#9CA3AF] border-[#F3F4F6]"
+                    )}>
+                      {renderValue(action.priority || "Action Item")}
+                    </div>
+                  </div>
+                  
+                  {Array.isArray(action.steps) && action.steps.length > 0 && (
+                    <div className="pl-11 space-y-3">
+                      <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <List size={10} /> Execution Steps
+                      </div>
+                      <div className="grid grid-cols-1 gap-2">
+                        {action.steps.map((step: string, sIdx: number) => (
+                          <div key={sIdx} className="flex items-start gap-3 p-2.5 rounded-lg bg-[#F9FAFB] border border-[#F3F4F6] group-hover:bg-white group-hover:border-blue-50 transition-colors">
+                            <CheckCircle2 size={12} className="text-emerald-500 mt-0.5 shrink-0" />
+                            <span className="text-xs text-[#4B5563] leading-snug">{renderValue(step)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Insight Footer */}
+      {(data.additional_context?.potential_causes?.length > 0 || data.additional_context?.impact || data.timestamp) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-[#F3F4F6]">
+          <div>
+            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Sparkles size={12} className="text-amber-500" /> Potential Causes
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {data.additional_context?.potential_causes?.map((cause: string, idx: number) => (
+                <span key={idx} className="px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-medium border border-amber-100 flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-amber-400" />
+                  {renderValue(cause)}
+                </span>
+              ))}
+              {(!data.additional_context?.potential_causes || data.additional_context.potential_causes.length === 0) && (
+                <span className="text-[10px] text-[#9CA3AF] italic">No specific causes flagged.</span>
+              )}
+            </div>
+          </div>
+          {data.additional_context?.impact && (
+            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5">
+              <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Business Impact Assessment</div>
+              <p className="text-xs text-[#4B5563] leading-relaxed italic">
+                "{renderValue(data.additional_context.impact)}"
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AnalysisPanel({ analysis }: { analysis: any }) {
   const [showPatch, setShowPatch] = useState(false);
   const confidence = analysis.confidence ?? 0;
@@ -347,16 +637,23 @@ function AnalysisPanel({ analysis }: { analysis: any }) {
           </div>
         </div>
 
-        {analysis.root_cause && (
-          <div>
-            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
-              Root Cause
+        {(() => {
+          const structuredData = parseRootCause(analysis.root_cause);
+          if (analysis.summary === "Could not parse LLM response" && structuredData) {
+            return <StructuredAnalysis data={structuredData} />;
+          }
+
+          return analysis.root_cause && (
+            <div>
+              <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+                Root Cause
+              </div>
+              <div className="text-sm text-[#4B5563] whitespace-pre-wrap bg-[#F9FAFB] p-4 rounded-lg border border-[#F3F4F6] leading-relaxed">
+                {analysis.root_cause}
+              </div>
             </div>
-            <div className="text-sm text-[#4B5563] whitespace-pre-wrap bg-[#F9FAFB] p-4 rounded-lg border border-[#F3F4F6] leading-relaxed">
-              {analysis.root_cause}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {analysis.suggested_fix && (
           <div>
