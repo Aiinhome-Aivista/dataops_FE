@@ -4,6 +4,7 @@ import { LiveLogStream } from '../components/LiveLogStream';
 import { useStore } from '../hooks/useStore';
 import { api } from '../services/api';
 import { cn } from '../lib/utils';
+import { Loading } from '../components/Loading';
 import type { LogEntry } from '../types';
 
 const TYPES: Array<{ id: string; label: string }> = [
@@ -20,14 +21,15 @@ export function AuditPage() {
   const [persisted, setPersisted] = useState<LogEntry[]>([]);
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const reload = async () => {
-    setBusy(true);
+    setLoading(true);
     try {
       setPersisted(await api.audit(300));
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
 
@@ -72,7 +74,10 @@ export function AuditPage() {
 
   return (
     <>
-      <main className="flex-1 overflow-hidden flex flex-col">
+      {loading ? (
+        <Loading message="Fetching forensic audit trail..." />
+      ) : (
+        <main className="flex-1 overflow-hidden flex flex-col">
         <div className="px-10 py-6 border-b border-[#E5E7EB] bg-white flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1">
             {TYPES.map((t) => (
@@ -111,7 +116,8 @@ export function AuditPage() {
             <LiveLogStream logs={filtered} height="100%" />
           </div>
         </div>
-      </main>
+        </main>
+      )}
     </>
   );
 }

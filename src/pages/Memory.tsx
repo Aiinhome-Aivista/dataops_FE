@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, Brain, BookOpen, Layers, ArrowRight, AlertTriangle, ShieldCheck, ListChecks, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '../services/api';
 import { cn, timeAgo } from '../lib/utils';
+import { Loading } from '../components/Loading';
 import type { MemoryEntry } from '../types';
 
 const KIND_META = {
@@ -27,8 +28,10 @@ export function MemoryPage() {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MemoryEntry[]>([]);
   const [searching, setSearching] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const reload = async () => {
+    setLoading(true);
     try {
       const [episodic, procedural, semantic] = await Promise.all([
         api.memory('episodic'),
@@ -41,6 +44,8 @@ export function MemoryPage() {
       setEntries(combined);
     } catch {
       /* ignore */
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,7 +80,10 @@ export function MemoryPage() {
 
   return (
     <>
-      <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+      {loading ? (
+        <Loading message="Syncing Agentic Memory..." />
+      ) : (
+        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Tier selector */}
           {/* 
@@ -190,7 +198,8 @@ export function MemoryPage() {
             </div>
           </div>
         </div>
-      </main>
+        </main>
+      )}
     </>
   );
 }

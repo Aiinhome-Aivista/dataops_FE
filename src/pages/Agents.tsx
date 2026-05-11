@@ -14,6 +14,7 @@ import { LiveLogStream } from '../components/LiveLogStream';
 import { useStore } from '../hooks/useStore';
 import { api } from '../services/api';
 import { cn } from '../lib/utils';
+import { Loading } from '../components/Loading';
 import type { AgentStatus, ToolSpec } from '../types';
 
 const ROLE_ICON = {
@@ -37,9 +38,11 @@ const ROLE_COLOR: Record<string, { bg: string; ring: string; text: string; soft:
 export function AgentsPage() {
   const { state } = useStore();
   const [tools, setTools] = useState<ToolSpec[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.tools().then(setTools).catch(() => {});
+    setLoading(true);
+    api.tools().then(setTools).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const orchestrator = state.agents.find((a) => a.role === 'orchestrator');
@@ -47,7 +50,10 @@ export function AgentsPage() {
 
   return (
     <>
-      <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+      {loading ? (
+        <Loading message="Syncing Agent Mesh..." />
+      ) : (
+        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-10">
           {/* Mesh diagram */}
           {/* 
@@ -170,7 +176,8 @@ export function AgentsPage() {
           </section>
           */}
         </div>
-      </main>
+        </main>
+      )}
     </>
   );
 }

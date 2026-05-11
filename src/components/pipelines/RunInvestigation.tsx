@@ -154,7 +154,7 @@ export function RunInvestigation({
               </span>
               <span className="font-mono text-xs text-[#6B7280]">
                 {run.started_at &&
-                  format(new Date(run.started_at), "yyyy-MM-dd HH:mm:ss")}
+                  format(new Date(run.started_at), "dd/MM/yyyy HH:mm:ss")}
                 {run.duration_seconds != null &&
                   ` · ${run.duration_seconds.toFixed(1)}s`}
               </span>
@@ -273,7 +273,7 @@ export function RunInvestigation({
                       className="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors group"
                     >
                       <span className="text-[#4B5563] shrink-0 select-none">
-                        {format(new Date(l.timestamp), "HH:mm:ss")}
+                        {format(new Date(l.timestamp), "dd/MM/yyyy HH:mm:ss")}
                       </span>
                       <span
                         className={cn(

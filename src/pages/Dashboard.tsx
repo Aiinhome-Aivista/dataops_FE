@@ -48,26 +48,21 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const reload = async () => {
+    setLoading(true);
     refresh();
-    // Fetch connectors independently so they show even if metrics fail
-    api
-      .connectors()
-      .then(setConnectors)
-      .catch((e) => console.error("Connectors fetch failed", e));
-
-    // Fetch stats independently
-    const loadStats = async () => {
-      try {
-        const res = await api.stats();
-        console.log("Dashboard Stats Received:", res);
-        setStats(res);
-      } catch (err) {
-        console.warn("Failed to fetch dashboard stats:", err);
-      }
-    };
-    loadStats();
-
-    setLoading(false);
+    
+    try {
+      const [cData, sData] = await Promise.all([
+        api.connectors(),
+        api.stats()
+      ]);
+      setConnectors(cData);
+      setStats(sData);
+    } catch (err) {
+      console.warn("Failed to fetch dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -125,7 +120,7 @@ export function DashboardPage() {
 
   return (
     <>
-      {loading && !stats ? (
+      {loading ? (
         <Loading message="assembling control plane overview..." />
       ) : (
         <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
@@ -174,7 +169,6 @@ export function DashboardPage() {
           </div>
 
           {/* Charts row */}
-          {/* Status Distribution & Connectors by Type & Live Feed */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Status Distribution */}
             <div className="bg-white border border-[#E5E7EB] p-7 rounded-lg">

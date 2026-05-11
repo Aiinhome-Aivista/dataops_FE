@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { ConnectorModal } from "../components/ConnectorModal";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
+import { Loading } from "../components/Loading";
 import { api } from "../services/api";
 import type { Connector } from "../types";
 import { cn, timeAgo } from "../lib/utils";
@@ -48,8 +49,16 @@ export function ConnectorsPage() {
   const [openOnNew, setOpenOnNew] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const reload = async () => setConnectors(await api.connectors());
+  const reload = async () => {
+    setLoading(true);
+    try {
+      setConnectors(await api.connectors());
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     reload();
@@ -107,7 +116,10 @@ export function ConnectorsPage() {
 
   return (
     <>
-      <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+      {loading ? (
+        <Loading message="Fetching source connectors..." />
+      ) : (
+        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-6xl mx-auto space-y-10">
           {/* Counters */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -240,7 +252,8 @@ export function ConnectorsPage() {
             </section>
           ))}
         </div>
-      </main>
+        </main>
+      )}
       <ConnectorModal
         open={open}
         onClose={() => {

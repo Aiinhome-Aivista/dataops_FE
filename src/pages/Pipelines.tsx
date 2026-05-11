@@ -173,6 +173,8 @@ export function PipelinesPage() {
               </div>
             </div>
           )
+        ) : loading ? (
+          <Loading message="Syncing pipeline catalog..." />
         ) : (
           <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
           {/* ... Catalog List Content ... */}

@@ -6,13 +6,10 @@ import {
   RefreshCw,
   Sparkles,
   AlertCircle,
-  Workflow,
 } from "lucide-react";
-import { Header } from "../Header";
-import { PipelineDAG } from "../PipelineDAG";
 import { PipelineStatusBadge } from "../Badges";
 import { useStore } from "../../hooks/useStore";
-import { cn, timeAgo } from "../../lib/utils";
+import { cn, timeAgo, formatDateTime } from "../../lib/utils";
 import type { Pipeline } from "../../types";
 
 function formatDuration(seconds: number | null) {
@@ -166,7 +163,7 @@ export function PipelineDetail({
                       >
                         <td className="px-6 py-4">
                           <span className="text-xs font-mono font-bold text-[#111827] group-hover:text-blue-600 transition-colors">
-                            {run.external_run_id?.slice(0, 12)}...
+                            {run.external_run_id}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -175,7 +172,7 @@ export function PipelineDetail({
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
                             <span className="text-[11px] font-bold text-[#4B5563]">
-                              {new Date(run.started_at).toLocaleString()}
+                              {formatDateTime(run.started_at)}
                             </span>
                             <span className="text-[10px] text-[#9CA3AF] font-medium">
                               {timeAgo(run.started_at)}
@@ -218,16 +215,6 @@ export function PipelineDetail({
             </div>
           </div>
 
-          {/* Topology Section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <Workflow size={14} className="text-[#9CA3AF]" />
-              <h3 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">
-                Topology · Directed Acyclic Graph
-              </h3>
-            </div>
-            <PipelineDAG nodes={pipeline.dag} orientation="horizontal" />
-          </div>
         </div>
       </div>
     </div>

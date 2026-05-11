@@ -2,17 +2,22 @@ import { useEffect, useState } from 'react';
 import { Lightbulb, RefreshCcw, Check, X } from 'lucide-react';
 import { api } from '../services/api';
 import { cn, timeAgo } from '../lib/utils';
+import { Loading } from '../components/Loading';
 import type { Recommendation } from '../types';
 
 export function RecommendationsPage() {
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const reload = async () => {
+    setLoading(true);
     try {
       setRecs(await api.recommendations());
     } catch {
       /* ignore */
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,7 +46,10 @@ export function RecommendationsPage() {
 
   return (
     <>
-      <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+      {loading ? (
+        <Loading message="Fetching optimization strategies..." />
+      ) : (
+        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="grid grid-cols-3 gap-4">
             <Stat label="Open" value={open.length} accent="text-amber-700 bg-amber-50" />
@@ -72,7 +80,8 @@ export function RecommendationsPage() {
             </Section>
           )}
         </div>
-      </main>
+        </main>
+      )}
     </>
   );
 }

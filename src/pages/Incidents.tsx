@@ -22,6 +22,7 @@ import { PipelineDAG } from '../components/PipelineDAG';
 import { useStore } from '../hooks/useStore';
 import { api } from '../services/api';
 import { cn, formatTime, timeAgo } from '../lib/utils';
+import { Loading } from '../components/Loading';
 import type { Incident, MemoryEntry } from '../types';
 
 const LOOP_STAGES = [
@@ -74,7 +75,10 @@ export function IncidentsPage() {
 
   return (
     <>
-      <main className="flex-1 overflow-hidden flex">
+      {state.isLoading && state.incidents.length === 0 ? (
+        <Loading message="Syncing Incident Loop..." fullPage={false} />
+      ) : (
+        <main className="flex-1 overflow-hidden flex">
         {/* Incident sidebar */}
         <div className="w-[340px] border-r border-[#E5E7EB] bg-white flex flex-col shrink-0">
           <div className="p-5 border-b border-[#E5E7EB]">
@@ -156,7 +160,8 @@ export function IncidentsPage() {
             />
           )}
         </div>
-      </main>
+        </main>
+      )}
     </>
   );
 }
