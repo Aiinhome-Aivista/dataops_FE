@@ -428,7 +428,10 @@ function NewConnectorForm({
     onError("");
     try {
       if (type === 'AWS_GLUE') {
-        await api.connectAWSGlue(creds as unknown as CredMap['AWS_GLUE']);
+        await api.connectAWSGlue({
+          name,
+          ...(creds as unknown as CredMap['AWS_GLUE'])
+        });
       } else {
         const created = await api.upsertConnector({
           type,

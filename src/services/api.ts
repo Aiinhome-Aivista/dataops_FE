@@ -199,6 +199,7 @@ export const api = {
   stats: () => req<DashboardStats>("/dashboard/stats"),
 
   connectAWSGlue: (credentials: {
+    name: string;
     aws_access_key_id: string;
     aws_secret_access_key: string;
     region_name: string;
