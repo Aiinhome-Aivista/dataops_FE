@@ -112,7 +112,7 @@ export function IncidentsPage() {
               filtered.map((incident) => (
                 <button
                   key={incident.id}
-                  onClick={() => navigate(`/incidents/${incident.id}`)}
+                  onClick={() => navigate(`/app/incidents/${incident.id}`)}
                   className={cn(
                     'w-full p-5 text-left transition-colors flex flex-col gap-2 relative',
                     selected?.id === incident.id ? 'bg-gray-50' : 'hover:bg-gray-50/50',
