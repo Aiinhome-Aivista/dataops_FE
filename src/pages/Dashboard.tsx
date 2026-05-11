@@ -125,20 +125,6 @@ export function DashboardPage() {
 
   return (
     <>
-      <Header
-        title="System Overview"
-        subtitle="Autonomous control plane · Observe → Reason → Plan → Act → Learn"
-        actions={
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all"
-          >
-            <Plus className="w-3 h-3" />
-            Connect Source
-          </button>
-        }
-      />
-
       {loading && !stats ? (
         <Loading message="assembling control plane overview..." />
       ) : (

@@ -44,10 +44,10 @@ export function Sidebar() {
   };
 
   return (
-    <aside 
+    <aside
       className={cn(
         "bg-white border-r border-[#E5E7EB] flex flex-col shrink-0 transition-all duration-300 ease-in-out relative group",
-        isCollapsed ? "w-20" : "w-64"
+        isCollapsed ? "w-20" : "w-64",
       )}
     >
       {/* Toggle Bar */}
@@ -55,7 +55,7 @@ export function Sidebar() {
         onClick={() => setIsCollapsed(!isCollapsed)}
         className={cn(
           "absolute -right-3 top-24 w-6 h-12 bg-white border border-[#E5E7EB] rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all z-50 hover:bg-[#F9FAFB] hover:border-[#D1D5DB]",
-          "after:content-[''] after:w-0.5 after:h-4 after:bg-[#E5E7EB] after:rounded-full after:hover:bg-[#9CA3AF] after:transition-colors"
+          "after:content-[''] after:w-0.5 after:h-4 after:bg-[#E5E7EB] after:rounded-full after:hover:bg-[#9CA3AF] after:transition-colors",
         )}
         title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
       >
@@ -66,32 +66,12 @@ export function Sidebar() {
         )}
       </button>
 
-      <div className={cn(
-        "px-6 pt-8 pb-6 flex flex-col",
-        isCollapsed ? "items-center" : ""
-      )}>
-        <div className={cn(
-          "flex items-center gap-3 mb-10 group/logo overflow-hidden transition-all",
-          isCollapsed ? "justify-center" : ""
-        )}>
-          <div className="w-9 h-9 rounded-md bg-[#111827] flex items-center justify-center relative overflow-hidden shrink-0">
-            <Zap
-              className="w-5 h-5 text-white relative z-10"
-              fill="currentColor"
-            />
-            <div className="absolute inset-0 bg-linear-to-br from-[#111827] via-[#1F2937] to-[#111827] opacity-80 group-hover/logo:opacity-100 transition-opacity" />
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col items-start leading-none whitespace-nowrap animate-in fade-in duration-300">
-              <span className="font-semibold tracking-tight text-[15px]">
-                AGENTIC<span className="text-gray-400">OPS</span>
-              </span>
-              <span className="text-[9px] uppercase tracking-[0.18em] text-[#9CA3AF] mt-1">
-                Autonomous DataOps
-              </span>
-            </div>
-          )}
-        </div>
+      <div
+        className={cn(
+          "px-6 pt-8 pb-6 flex flex-col",
+          isCollapsed ? "items-center" : "",
+        )}
+      >
 
         <nav className="space-y-1">
           {NAV.map((item) => (
@@ -105,7 +85,7 @@ export function Sidebar() {
                   isActive
                     ? "bg-[#F3F4F6] text-[#111827]"
                     : "text-[#6B7280] hover:bg-[#F9FAFB] hover:text-[#111827]",
-                  isCollapsed ? "justify-center px-0 w-10 mx-auto" : ""
+                  isCollapsed ? "justify-center px-0 w-10 mx-auto" : "",
                 )
               }
               title={isCollapsed ? item.label : ""}
@@ -123,18 +103,22 @@ export function Sidebar() {
                   )}
                 </>
               )}
-              {isCollapsed && item.to === "/app/incidents" && openIncidents > 0 && (
-                <div className="absolute top-1 right-1 w-2 h-2 bg-[#111827] rounded-full border border-white" />
-              )}
+              {isCollapsed &&
+                item.to === "/app/incidents" &&
+                openIncidents > 0 && (
+                  <div className="absolute top-1 right-1 w-2 h-2 bg-[#111827] rounded-full border border-white" />
+                )}
             </NavLink>
           ))}
         </nav>
       </div>
 
-      <div className={cn(
-        "mt-auto p-6 border-t border-[#E5E7EB]",
-        isCollapsed ? "flex flex-col items-center gap-4 px-0" : ""
-      )}>
+      <div
+        className={cn(
+          "mt-auto p-6 border-t border-[#E5E7EB]",
+          isCollapsed ? "flex flex-col items-center gap-4 px-0" : "",
+        )}
+      >
         {!isCollapsed ? (
           <div className="flex items-center justify-between px-1 mb-6">
             <span className="text-[9px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
@@ -153,10 +137,10 @@ export function Sidebar() {
             </div>
           </div>
         ) : (
-          <div 
+          <div
             className={cn(
               "w-2 h-2 rounded-full mb-2",
-              state.connected ? "bg-emerald-500" : "bg-amber-500"
+              state.connected ? "bg-emerald-500" : "bg-amber-500",
             )}
             title={state.connected ? "Live" : "Reconnecting"}
           />
@@ -166,12 +150,16 @@ export function Sidebar() {
           onClick={handleLogout}
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2 rounded-md text-[#6B7280] hover:bg-rose-50 hover:text-rose-600 transition-all text-[13px] font-medium group/logout overflow-hidden",
-            isCollapsed ? "justify-center px-0 w-10 mx-auto" : ""
+            isCollapsed ? "justify-center px-0 w-10 mx-auto" : "",
           )}
           title={isCollapsed ? "Sign Out" : ""}
         >
           <LogOut className="w-4 h-4 group-hover/logout:rotate-12 transition-transform shrink-0" />
-          {!isCollapsed && <span className="whitespace-nowrap animate-in fade-in duration-300">Sign Out</span>}
+          {!isCollapsed && (
+            <span className="whitespace-nowrap animate-in fade-in duration-300">
+              Sign Out
+            </span>
+          )}
         </button>
       </div>
     </aside>

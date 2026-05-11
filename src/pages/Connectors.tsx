@@ -105,22 +105,6 @@ export function ConnectorsPage() {
 
   return (
     <>
-      <Header
-        title="Connectors"
-        subtitle="External systems · orchestrators, telemetry, ticketing"
-        actions={
-          <button
-            onClick={() => {
-              setOpenOnNew(true);
-              setOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#111827] text-white hover:bg-black text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Connector
-          </button>
-        }
-      />
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-6xl mx-auto space-y-10">
           {/* Counters */}

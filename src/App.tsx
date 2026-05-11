@@ -14,6 +14,7 @@ import { LoginPage } from './pages/Login';
 import { LandingPage } from './pages/Landing';
 import { auth } from './services/api';
 import { GlobalLoader } from './components/GlobalLoader';
+import { Header } from './components/Header';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const loc = useLocation();
@@ -23,25 +24,71 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
+  '/app': { 
+    title: 'System Overview', 
+    subtitle: 'Autonomous Control Plane · Observe → Reason → Plan → Act → Learn' 
+  },
+  '/app/pipelines': { 
+    title: 'Data Pipelines', 
+    subtitle: 'Monitor and manage cross-platform data processing workflows' 
+  },
+  '/app/incidents': { 
+    title: 'Incident Loop', 
+    subtitle: 'Real-time incident detection, analysis and automated remediation' 
+  },
+  '/app/agents': { 
+    title: 'Agent Mesh', 
+    subtitle: 'Autonomous AI agents collaborating on data operations' 
+  },
+  '/app/connectors': { 
+    title: 'Source Connectors', 
+    subtitle: 'Manage secure connections to cloud platforms and repositories' 
+  },
+  '/app/memory': { 
+    title: 'System Memory', 
+    subtitle: 'Historical context and learned patterns for better decision making' 
+  },
+  '/app/recommendations': { 
+    title: 'Optimize', 
+    subtitle: 'AI-driven suggestions for performance and cost improvements' 
+  },
+  '/app/audit': { 
+    title: 'Audit Trail', 
+    subtitle: 'Complete forensic record of all manual and automated actions' 
+  }
+};
+
 function Shell() {
+  const { pathname } = useLocation();
+  // Find the closest match in PAGE_META
+  const currentPath = Object.keys(PAGE_META)
+    .sort((a, b) => b.length - a.length)
+    .find(p => pathname === p || pathname.startsWith(p + '/')) || '/app';
+  
+  const meta = PAGE_META[currentPath];
+
   return (
     <StoreProvider>
       <GlobalLoader />
-      <div className="flex h-screen bg-[#F9FAFB] text-[#111827] overflow-hidden">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/pipelines" element={<PipelinesPage />} />
-            <Route path="/pipelines/:id" element={<PipelinesPage />} />
-            <Route path="/incidents" element={<IncidentsPage />} />
-            <Route path="/incidents/:id" element={<IncidentsPage />} />
-            <Route path="/agents" element={<AgentsPage />} />
-            <Route path="/memory" element={<MemoryPage />} />
-            <Route path="/recommendations" element={<RecommendationsPage />} />
-            <Route path="/connectors" element={<ConnectorsPage />} />
-            <Route path="/audit" element={<AuditPage />} />
-          </Routes>
+      <div className="flex flex-col h-screen bg-[#F9FAFB] text-[#111827] overflow-hidden">
+        <Header title={meta.title} subtitle={meta.subtitle} />
+        <div className="flex-1 flex overflow-hidden">
+          <Sidebar />
+          <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/pipelines" element={<PipelinesPage />} />
+              <Route path="/pipelines/:id" element={<PipelinesPage />} />
+              <Route path="/incidents" element={<IncidentsPage />} />
+              <Route path="/incidents/:id" element={<IncidentsPage />} />
+              <Route path="/agents" element={<AgentsPage />} />
+              <Route path="/memory" element={<MemoryPage />} />
+              <Route path="/recommendations" element={<RecommendationsPage />} />
+              <Route path="/connectors" element={<ConnectorsPage />} />
+              <Route path="/audit" element={<AuditPage />} />
+            </Routes>
+          </main>
         </div>
       </div>
     </StoreProvider>

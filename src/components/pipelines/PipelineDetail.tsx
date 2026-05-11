@@ -88,6 +88,17 @@ export function PipelineDetail({
 
       <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-6">
+          {/* Back Action */}
+          <div className="flex items-center">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E5E7EB] rounded text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B7280] hover:bg-gray-50 transition-all shadow-sm"
+            >
+              <ArrowLeft size={12} />
+              Back to Catalog
+            </button>
+          </div>
+
           {/* Stats Strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <MetricCard label="Last Status">
