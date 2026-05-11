@@ -80,6 +80,9 @@ export function PipelinesPage() {
 
   // Handle individual pipeline detail fetch
   useEffect(() => {
+    // Reset run selection when pipeline context changes
+    setSelectedRunId(null);
+
     if (!id) {
       setSelectedPipeline(null);
       return;

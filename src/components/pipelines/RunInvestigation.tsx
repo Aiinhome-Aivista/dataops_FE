@@ -39,6 +39,7 @@ export function RunInvestigation({
   const [run, setRun] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [analysis, setAnalysis] = useState<any>(null);
+  const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [logFilter, setLogFilter] = useState("ALL");
@@ -47,14 +48,25 @@ export function RunInvestigation({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [runData, logsData, analysisData] = await Promise.all([
+      // Fetch essential data first
+      const [runData, logsData] = await Promise.all([
         api.run(runId),
         api.runLogs(runId),
-        api.runAnalysis(runId),
       ]);
       setRun(runData);
       setLogs(logsData);
-      setAnalysis(analysisData);
+
+      // Attempt to fetch analysis, but don't fail if it's missing (404)
+      try {
+        const analysisData = await api.runAnalysis(runId);
+        setAnalysis(analysisData);
+        setAnalysisMessage(null);
+      } catch (ae: any) {
+        console.warn("No analysis found for this run yet.");
+        setAnalysis(null);
+        // Extract message from response if available
+        setAnalysisMessage(ae.response?.data?.detail || "No analysis available for this run yet");
+      }
     } catch (e) {
       console.error("Failed to load run forensic data", e);
     } finally {
@@ -186,7 +198,7 @@ export function RunInvestigation({
           {analysis ? (
             <AnalysisPanel analysis={analysis} />
           ) : (
-            run.status === "FAILED" && (
+            analysisMessage && (
               <div className="bg-white border border-blue-100 rounded-xl p-6 shadow-sm relative overflow-hidden">
                 <div className="absolute -top-12 -right-12 w-40 h-40 bg-blue-50/50 blur-3xl rounded-full pointer-events-none" />
                 <div className="flex items-center gap-3 mb-4">
@@ -195,17 +207,17 @@ export function RunInvestigation({
                   </div>
                   <div>
                     <div className="text-sm font-bold text-[#111827]">
-                      No analysis available
+                      {analysisMessage}
                     </div>
                     <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">
-                      AI diagnosis has not been triggered for this failure
+                      AI diagnosis has not been triggered for this run
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={triggerAnalysis}
                   disabled={analyzing}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-blue-700 transition-all shadow-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-blue-700 transition-all shadow-sm disabled:opacity-50"
                 >
                   {analyzing ? (
                     <RotateCw size={14} className="animate-spin" />
@@ -347,8 +359,15 @@ function repairJson(jsonStr: string) {
 
 function parseRootCause(rootCause: string) {
   try {
+    if (!rootCause) return null;
+    
     // Extract JSON from markdown code block if present
-    const jsonStr = rootCause.replace(/```json\n?/, "").replace(/```\n?$/, "").trim();
+    // Handles ```json, ```JSON, or just ```
+    let jsonStr = rootCause.trim();
+    const match = jsonStr.match(/```(?:json)?\n?([\s\S]*?)```/i);
+    if (match && match[1]) {
+      jsonStr = match[1].trim();
+    }
     
     try {
       return JSON.parse(jsonStr);
@@ -358,10 +377,14 @@ function parseRootCause(rootCause: string) {
       return JSON.parse(repaired);
     }
   } catch (e) {
+    console.error("Root cause parse failed:", e);
     return null;
   }
 }
-function StructuredAnalysis({ data }: { data: any }) {
+function StructuredAnalysis({ data: rawData }: { data: any }) {
+  // Normalize data: Some LLMs return everything inside a 'pipeline_status' or 'analysis' key
+  const data = rawData.pipeline_status || rawData.analysis || rawData;
+
   const renderValue = (val: any, fallback: string = "N/A") => {
     if (val === null || val === undefined) return fallback;
     if (typeof val === "object") {
@@ -374,16 +397,27 @@ function parseRootCause(rootCause: string) {
 
   // Normalized data mapping for resilience
   const metadata = data.metadata || data.error?.metadata || {};
-  const creator = metadata.creator_user_name || "System";
-  const task = data.error?.task || metadata.failed_tasks?.[0] || "N/A";
+  const creator = metadata.creator_user_name || metadata.owner || "System";
+  const source = data.source || data.provider || "N/A";
+  const pipeline = data.pipeline_name || data.pipeline || "Unknown Pipeline";
+  const task = data.error?.task || metadata.tasks?.[0] || metadata.failed_tasks?.[0] || "N/A";
   const severity = data.additional_context?.severity || data.severity || "normal";
   
+  const analysisObj = data.analysis || {};
+  const summary = analysisObj.summary || data.error?.top_level_error || data.summary;
+  const detailedError = analysisObj.detailed_error || data.error?.detailed_error;
+
   // Normalize recommended actions into a flat array
   let actions = [];
-  if (Array.isArray(data.recommended_actions)) {
-    actions = data.recommended_actions;
-  } else if (typeof data.recommended_actions === "object" && data.recommended_actions !== null) {
-    actions = Object.values(data.recommended_actions).flat();
+  const rawActions = analysisObj.recommendations || data.recommended_actions || analysisObj.next_steps;
+  
+  if (Array.isArray(rawActions)) {
+    actions = rawActions.map((a: any) => {
+      if (typeof a === 'string') return { action: a, description: "AI Recommended Action" };
+      return a;
+    });
+  } else if (typeof rawActions === "object" && rawActions !== null) {
+    actions = Object.values(rawActions).flat();
   }
 
   return (
@@ -394,8 +428,8 @@ function parseRootCause(rootCause: string) {
           <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
             <Database size={12} className="text-blue-500" /> Source
           </div>
-          <div className="text-sm font-bold text-[#111827]">{renderValue(data.source)}</div>
-          <div className="text-[10px] font-medium text-[#6B7280] mt-1 truncate">{renderValue(data.pipeline, "Unknown Pipeline")}</div>
+          <div className="text-sm font-bold text-[#111827]">{renderValue(source)}</div>
+          <div className="text-[10px] font-medium text-[#6B7280] mt-1 truncate">{renderValue(pipeline)}</div>
         </div>
 
         <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-xl p-4 shadow-sm">
@@ -441,26 +475,26 @@ function parseRootCause(rootCause: string) {
           <div>
             <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Incident Summary</div>
             <div className="text-sm font-mono text-[#111827] bg-white border border-rose-100 p-4 rounded-xl shadow-inner leading-relaxed">
-              {renderValue(data.error?.top_level_error || data.summary, "No top-level error message provided.")}
+              {renderValue(summary, "No top-level error message provided.")}
             </div>
           </div>
           <div>
             <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Contextual Findings</div>
-            {typeof data.error?.detailed_error === "object" && data.error.detailed_error !== null ? (
+            {typeof detailedError === "object" && detailedError !== null ? (
               <div className="space-y-3">
                 <div className="text-sm text-[#4B5563] leading-relaxed italic">
-                  {renderValue(data.error.detailed_error.message || data.error.detailed_error.error || "No detailed message provided.")}
+                  {renderValue(detailedError.message || detailedError.error || "No detailed message provided.")}
                 </div>
-                {data.error.detailed_error.logs && (
+                {detailedError.logs && (
                   <div className="bg-[#111827] text-gray-400 p-3 rounded-lg font-mono text-[10px] overflow-x-auto border border-[#1F2937] shadow-inner">
                     <div className="text-[8px] font-bold text-[#4B5563] uppercase tracking-widest mb-2 border-b border-[#1F2937] pb-1">Technical Logs</div>
-                    {data.error.detailed_error.logs}
+                    {detailedError.logs}
                   </div>
                 )}
               </div>
             ) : (
               <div className="text-sm text-[#4B5563] leading-relaxed italic">
-                {renderValue(data.error?.detailed_error, "No detailed explanation available.")}
+                {renderValue(detailedError, "No detailed explanation available.")}
               </div>
             )}
             
