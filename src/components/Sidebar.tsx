@@ -17,12 +17,12 @@ import { auth } from "../services/api";
 
 const NAV = [
   { to: "/app", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/app/connectors", icon: Plug, label: "Connectors" },
   { to: "/app/pipelines", icon: Database, label: "Pipelines" },
   { to: "/app/incidents", icon: ShieldAlert, label: "Incident Loop" },
   { to: "/app/agents", icon: Brain, label: "Agent Mesh" },
   { to: "/app/memory", icon: History, label: "Memory" },
   { to: "/app/recommendations", icon: Lightbulb, label: "Optimize" },
-  { to: "/app/connectors", icon: Plug, label: "Connectors" },
   { to: "/app/audit", icon: Wrench, label: "Audit Trail" },
 ];
 
