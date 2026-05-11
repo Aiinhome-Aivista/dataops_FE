@@ -56,7 +56,6 @@ export function AgentsPage() {
         <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-10">
           {/* Mesh diagram */}
-          {/* 
           <section className="bg-white border border-[#E5E7EB] rounded-lg p-10 grid-backdrop">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -87,10 +86,8 @@ export function AgentsPage() {
               </div>
             </div>
           </section>
-          */}
 
           {/* Per-agent detail */}
-          {/* 
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white border border-[#E5E7EB] rounded-lg p-7">
               <h4 className="text-sm font-semibold mb-1">Live Reasoning Stream</h4>
@@ -103,7 +100,6 @@ export function AgentsPage() {
                 />
               </div>
             </div>
-            */}
 
             <div className="bg-white border border-[#E5E7EB] rounded-lg p-7">
               <h4 className="text-sm font-semibold mb-1">Tool Registry</h4>
@@ -143,9 +139,8 @@ export function AgentsPage() {
                 ))}
               </div>
             </div>
-          {/* </section> */}
+          </section>
 
-          {/* 
           <section className="bg-white border border-[#E5E7EB] rounded-lg p-8">
             <div className="flex items-center gap-2 mb-6">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -174,7 +169,6 @@ export function AgentsPage() {
               ))}
             </div>
           </section>
-          */}
         </div>
         </main>
       )}
