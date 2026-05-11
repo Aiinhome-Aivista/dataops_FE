@@ -65,7 +65,9 @@ export function RunInvestigation({
         console.warn("No analysis found for this run yet.");
         setAnalysis(null);
         // Extract message from response if available
-        setAnalysisMessage(ae.response?.data?.detail || "No analysis available for this run yet");
+        setAnalysisMessage(
+          ae.response?.data?.detail || "No analysis available for this run yet",
+        );
       }
     } catch (e) {
       console.error("Failed to load run forensic data", e);
@@ -124,7 +126,6 @@ export function RunInvestigation({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
-
       <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Back Action */}
@@ -169,7 +170,7 @@ export function RunInvestigation({
                 ) : (
                   <Brain size={14} />
                 )}
-                {analysis ? "Re-analyze" : "Analyze Failure"}
+                {analysis ? "Re-Thinking" : "Think on Failure"}
               </button>
             )}
           </div>
@@ -326,7 +327,7 @@ function repairJson(jsonStr: string) {
       escaped = false;
       continue;
     }
-    if (char === '\\') {
+    if (char === "\\") {
       escaped = true;
       continue;
     }
@@ -335,9 +336,9 @@ function repairJson(jsonStr: string) {
       continue;
     }
     if (!inString) {
-      if (char === '{') stack.push('}');
-      else if (char === '[') stack.push(']');
-      else if (char === '}' || char === ']') {
+      if (char === "{") stack.push("}");
+      else if (char === "[") stack.push("]");
+      else if (char === "}" || char === "]") {
         if (stack.length > 0 && stack[stack.length - 1] === char) {
           stack.pop();
         }
@@ -346,7 +347,7 @@ function repairJson(jsonStr: string) {
   }
 
   if (inString) repaired += '"';
-  
+
   // Remove trailing comma if it exists after repair (e.g., from truncated object)
   repaired = repaired.replace(/,\s*$/, "");
 
@@ -360,7 +361,7 @@ function repairJson(jsonStr: string) {
 function parseRootCause(rootCause: string) {
   try {
     if (!rootCause) return null;
-    
+
     // Extract JSON from markdown code block if present
     // Handles ```json, ```JSON, or just ```
     let jsonStr = rootCause.trim();
@@ -368,7 +369,7 @@ function parseRootCause(rootCause: string) {
     if (match && match[1]) {
       jsonStr = match[1].trim();
     }
-    
+
     try {
       return JSON.parse(jsonStr);
     } catch (e) {
@@ -381,7 +382,8 @@ function parseRootCause(rootCause: string) {
     return null;
   }
 }
-function StructuredAnalysis({ data: rawData }: { data: any }) {
+
+function StructuredAnalysis({ data: rawData }: { data: any }) {
   // Normalize data: Some LLMs return everything inside a 'pipeline_status' or 'analysis' key
   const data = rawData.pipeline_status || rawData.analysis || rawData;
 
@@ -400,20 +402,31 @@ function parseRootCause(rootCause: string) {
   const creator = metadata.creator_user_name || metadata.owner || "System";
   const source = data.source || data.provider || "N/A";
   const pipeline = data.pipeline_name || data.pipeline || "Unknown Pipeline";
-  const task = data.error?.task || metadata.tasks?.[0] || metadata.failed_tasks?.[0] || "N/A";
-  const severity = data.additional_context?.severity || data.severity || "normal";
-  
+  const task =
+    data.error?.task ||
+    metadata.tasks?.[0] ||
+    metadata.failed_tasks?.[0] ||
+    "N/A";
+  const severity =
+    data.additional_context?.severity || data.severity || "normal";
+
   const analysisObj = data.analysis || {};
-  const summary = analysisObj.summary || data.error?.top_level_error || data.summary;
-  const detailedError = analysisObj.detailed_error || data.error?.detailed_error;
+  const summary =
+    analysisObj.summary || data.error?.top_level_error || data.summary;
+  const detailedError =
+    analysisObj.detailed_error || data.error?.detailed_error;
 
   // Normalize recommended actions into a flat array
   let actions = [];
-  const rawActions = analysisObj.recommendations || data.recommended_actions || analysisObj.next_steps;
-  
+  const rawActions =
+    analysisObj.recommendations ||
+    data.recommended_actions ||
+    analysisObj.next_steps;
+
   if (Array.isArray(rawActions)) {
     actions = rawActions.map((a: any) => {
-      if (typeof a === 'string') return { action: a, description: "AI Recommended Action" };
+      if (typeof a === "string")
+        return { action: a, description: "AI Recommended Action" };
       return a;
     });
   } else if (typeof rawActions === "object" && rawActions !== null) {
@@ -428,16 +441,24 @@ function parseRootCause(rootCause: string) {
           <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
             <Database size={12} className="text-blue-500" /> Source
           </div>
-          <div className="text-sm font-bold text-[#111827]">{renderValue(source)}</div>
-          <div className="text-[10px] font-medium text-[#6B7280] mt-1 truncate">{renderValue(pipeline)}</div>
+          <div className="text-sm font-bold text-[#111827]">
+            {renderValue(source)}
+          </div>
+          <div className="text-[10px] font-medium text-[#6B7280] mt-1 truncate">
+            {renderValue(pipeline)}
+          </div>
         </div>
 
         <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
             <Activity size={12} className="text-amber-500" /> Task
           </div>
-          <div className="text-sm font-bold text-[#111827] truncate">{renderValue(task)}</div>
-          <div className="text-[10px] font-medium text-rose-600 mt-1 uppercase tracking-tighter">{renderValue(data.error?.status || data.status, "FAILED")}</div>
+          <div className="text-sm font-bold text-[#111827] truncate">
+            {renderValue(task)}
+          </div>
+          <div className="text-[10px] font-medium text-rose-600 mt-1 uppercase tracking-tighter">
+            {renderValue(data.error?.status || data.status, "FAILED")}
+          </div>
         </div>
 
         <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-xl p-4 shadow-sm">
@@ -447,19 +468,23 @@ function parseRootCause(rootCause: string) {
           <div className="text-sm font-bold text-[#111827] truncate">
             {renderValue(creator).split("@")[0]}
           </div>
-          <div className="text-[10px] font-medium text-[#6B7280] mt-1 truncate">{renderValue(creator)}</div>
+          <div className="text-[10px] font-medium text-[#6B7280] mt-1 truncate">
+            {renderValue(creator)}
+          </div>
         </div>
 
         <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
             <Info size={12} className="text-purple-500" /> Severity
           </div>
-          <div className={cn(
-            "inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border",
-            severity === "high" 
-              ? "bg-rose-50 text-rose-600 border-rose-100" 
-              : "bg-amber-50 text-amber-600 border-amber-100"
-          )}>
+          <div
+            className={cn(
+              "inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border",
+              severity === "high"
+                ? "bg-rose-50 text-rose-600 border-rose-100"
+                : "bg-amber-50 text-amber-600 border-amber-100",
+            )}
+          >
             {renderValue(severity, "Normal")}
           </div>
         </div>
@@ -469,51 +494,81 @@ function parseRootCause(rootCause: string) {
       <div className="bg-rose-50/30 border border-rose-100 rounded-2xl overflow-hidden shadow-sm">
         <div className="px-5 py-3 border-b border-rose-100 bg-rose-50/50 flex items-center gap-2">
           <AlertTriangle size={14} className="text-rose-600" />
-          <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Deep Error Analysis</span>
+          <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">
+            Deep Error Analysis
+          </span>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Incident Summary</div>
+            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+              Incident Summary
+            </div>
             <div className="text-sm font-mono text-[#111827] bg-white border border-rose-100 p-4 rounded-xl shadow-inner leading-relaxed">
               {renderValue(summary, "No top-level error message provided.")}
             </div>
           </div>
           <div>
-            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Contextual Findings</div>
+            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+              Contextual Findings
+            </div>
             {typeof detailedError === "object" && detailedError !== null ? (
               <div className="space-y-3">
                 <div className="text-sm text-[#4B5563] leading-relaxed italic">
-                  {renderValue(detailedError.message || detailedError.error || "No detailed message provided.")}
+                  {renderValue(
+                    detailedError.message ||
+                      detailedError.error ||
+                      "No detailed message provided.",
+                  )}
                 </div>
                 {detailedError.logs && (
                   <div className="bg-[#111827] text-gray-400 p-3 rounded-lg font-mono text-[10px] overflow-x-auto border border-[#1F2937] shadow-inner">
-                    <div className="text-[8px] font-bold text-[#4B5563] uppercase tracking-widest mb-2 border-b border-[#1F2937] pb-1">Technical Logs</div>
+                    <div className="text-[8px] font-bold text-[#4B5563] uppercase tracking-widest mb-2 border-b border-[#1F2937] pb-1">
+                      Technical Logs
+                    </div>
                     {detailedError.logs}
                   </div>
                 )}
               </div>
             ) : (
               <div className="text-sm text-[#4B5563] leading-relaxed italic">
-                {renderValue(detailedError, "No detailed explanation available.")}
+                {renderValue(
+                  detailedError,
+                  "No detailed explanation available.",
+                )}
               </div>
             )}
-            
+
             {/* Render structured error logs if they exist at error.logs level */}
             {Array.isArray(data.error?.logs) && data.error.logs.length > 0 && (
               <div className="mt-4 bg-[#111827] rounded-xl overflow-hidden border border-[#1F2937] shadow-lg">
                 <div className="px-4 py-2 border-b border-[#1F2937] bg-[#1F2937]/30 flex items-center gap-2">
                   <Terminal size={10} className="text-blue-400" />
-                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Forensic Log Extract</span>
+                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">
+                    Forensic Log Extract
+                  </span>
                 </div>
                 <div className="p-4 space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
                   {data.error.logs.map((log: any, lIdx: number) => (
-                    <div key={lIdx} className="flex gap-3 font-mono text-[10px] group">
-                      <span className="text-[#4B5563] shrink-0">{log.timestamp?.split('T')[1] || "LOG"}</span>
-                      <span className={cn(
-                        "shrink-0 font-bold",
-                        log.level === 'ERROR' ? 'text-rose-500' : 'text-blue-500'
-                      )}>[{log.level}]</span>
-                      <span className="text-gray-300 leading-relaxed">{log.message}</span>
+                    <div
+                      key={lIdx}
+                      className="flex gap-3 font-mono text-[10px] group"
+                    >
+                      <span className="text-[#4B5563] shrink-0">
+                        {log.timestamp?.split("T")[1] || "LOG"}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 font-bold",
+                          log.level === "ERROR"
+                            ? "text-rose-500"
+                            : "text-blue-500",
+                        )}
+                      >
+                        [{log.level}]
+                      </span>
+                      <span className="text-gray-300 leading-relaxed">
+                        {log.message}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -527,11 +582,15 @@ function parseRootCause(rootCause: string) {
       {actions.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">
-            <Wrench size={14} className="text-blue-600" /> Forensic Recommendations
+            <Wrench size={14} className="text-blue-600" /> Forensic
+            Recommendations
           </div>
           <div className="grid grid-cols-1 gap-4">
             {actions.map((action: any, idx: number) => (
-              <div key={idx} className="group bg-white border border-[#E5E7EB] rounded-2xl shadow-sm hover:border-blue-200 hover:shadow-md transition-all duration-300">
+              <div
+                key={idx}
+                className="group bg-white border border-[#E5E7EB] rounded-2xl shadow-sm hover:border-blue-200 hover:shadow-md transition-all duration-300"
+              >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -539,22 +598,28 @@ function parseRootCause(rootCause: string) {
                         {idx + 1}
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-[#111827]">{renderValue(action.action, "Recommended Action")}</h4>
-                        <p className="text-[11px] text-[#6B7280]">{renderValue(action.description)}</p>
+                        <h4 className="text-sm font-bold text-[#111827]">
+                          {renderValue(action.action, "Recommended Action")}
+                        </h4>
+                        <p className="text-[11px] text-[#6B7280]">
+                          {renderValue(action.description)}
+                        </p>
                       </div>
                     </div>
-                    <div className={cn(
-                      "px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest border transition-all",
-                      action.priority === "high" 
-                        ? "bg-rose-50 text-rose-600 border-rose-100 shadow-sm shadow-rose-100" 
-                        : action.priority === "medium"
-                        ? "bg-amber-50 text-amber-600 border-amber-100"
-                        : "bg-[#F9FAFB] text-[#9CA3AF] border-[#F3F4F6]"
-                    )}>
+                    <div
+                      className={cn(
+                        "px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest border transition-all",
+                        action.priority === "high"
+                          ? "bg-rose-50 text-rose-600 border-rose-100 shadow-sm shadow-rose-100"
+                          : action.priority === "medium"
+                            ? "bg-amber-50 text-amber-600 border-amber-100"
+                            : "bg-[#F9FAFB] text-[#9CA3AF] border-[#F3F4F6]",
+                      )}
+                    >
                       {renderValue(action.priority || "Action Item")}
                     </div>
                   </div>
-                  
+
                   {Array.isArray(action.steps) && action.steps.length > 0 && (
                     <div className="pl-11 space-y-3">
                       <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 flex items-center gap-1.5">
@@ -562,9 +627,17 @@ function parseRootCause(rootCause: string) {
                       </div>
                       <div className="grid grid-cols-1 gap-2">
                         {action.steps.map((step: string, sIdx: number) => (
-                          <div key={sIdx} className="flex items-start gap-3 p-2.5 rounded-lg bg-[#F9FAFB] border border-[#F3F4F6] group-hover:bg-white group-hover:border-blue-50 transition-colors">
-                            <CheckCircle2 size={12} className="text-emerald-500 mt-0.5 shrink-0" />
-                            <span className="text-xs text-[#4B5563] leading-snug">{renderValue(step)}</span>
+                          <div
+                            key={sIdx}
+                            className="flex items-start gap-3 p-2.5 rounded-lg bg-[#F9FAFB] border border-[#F3F4F6] group-hover:bg-white group-hover:border-blue-50 transition-colors"
+                          >
+                            <CheckCircle2
+                              size={12}
+                              className="text-emerald-500 mt-0.5 shrink-0"
+                            />
+                            <span className="text-xs text-[#4B5563] leading-snug">
+                              {renderValue(step)}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -578,27 +651,39 @@ function parseRootCause(rootCause: string) {
       )}
 
       {/* Insight Footer */}
-      {(data.additional_context?.potential_causes?.length > 0 || data.additional_context?.impact || data.timestamp) && (
+      {(data.additional_context?.potential_causes?.length > 0 ||
+        data.additional_context?.impact ||
+        data.timestamp) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-[#F3F4F6]">
           <div>
             <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Sparkles size={12} className="text-amber-500" /> Potential Causes
             </div>
             <div className="flex flex-wrap gap-2">
-              {data.additional_context?.potential_causes?.map((cause: string, idx: number) => (
-                <span key={idx} className="px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-medium border border-amber-100 flex items-center gap-2">
-                  <div className="w-1 h-1 rounded-full bg-amber-400" />
-                  {renderValue(cause)}
+              {data.additional_context?.potential_causes?.map(
+                (cause: string, idx: number) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-medium border border-amber-100 flex items-center gap-2"
+                  >
+                    <div className="w-1 h-1 rounded-full bg-amber-400" />
+                    {renderValue(cause)}
+                  </span>
+                ),
+              )}
+              {(!data.additional_context?.potential_causes ||
+                data.additional_context.potential_causes.length === 0) && (
+                <span className="text-[10px] text-[#9CA3AF] italic">
+                  No specific causes flagged.
                 </span>
-              ))}
-              {(!data.additional_context?.potential_causes || data.additional_context.potential_causes.length === 0) && (
-                <span className="text-[10px] text-[#9CA3AF] italic">No specific causes flagged.</span>
               )}
             </div>
           </div>
           {data.additional_context?.impact && (
             <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5">
-              <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Business Impact Assessment</div>
+              <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">
+                Business Impact Assessment
+              </div>
               <p className="text-xs text-[#4B5563] leading-relaxed italic">
                 "{renderValue(data.additional_context.impact)}"
               </p>
@@ -625,12 +710,12 @@ function AnalysisPanel({ analysis }: { analysis: any }) {
           </div>
           <div>
             <div className="text-sm font-bold flex items-center gap-2">
-              Mistral Diagnosis
-              {analysis.model && (
+              Agentic Ops Diagnosis
+              {/* {analysis.model && (
                 <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-widest">
                   {analysis.model}
                 </span>
-              )}
+              )} */}
             </div>
             <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mt-0.5">
               Generated{" "}
@@ -684,19 +769,24 @@ function AnalysisPanel({ analysis }: { analysis: any }) {
 
         {(() => {
           const structuredData = parseRootCause(analysis.root_cause);
-          if (analysis.summary === "Could not parse LLM response" && structuredData) {
+          if (
+            analysis.summary === "Could not parse LLM response" &&
+            structuredData
+          ) {
             return <StructuredAnalysis data={structuredData} />;
           }
 
-          return analysis.root_cause && (
-            <div>
-              <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
-                Root Cause
+          return (
+            analysis.root_cause && (
+              <div>
+                <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+                  Root Cause
+                </div>
+                <div className="text-sm text-[#4B5563] whitespace-pre-wrap bg-[#F9FAFB] p-4 rounded-lg border border-[#F3F4F6] leading-relaxed">
+                  {analysis.root_cause}
+                </div>
               </div>
-              <div className="text-sm text-[#4B5563] whitespace-pre-wrap bg-[#F9FAFB] p-4 rounded-lg border border-[#F3F4F6] leading-relaxed">
-                {analysis.root_cause}
-              </div>
-            </div>
+            )
           );
         })()}
 
