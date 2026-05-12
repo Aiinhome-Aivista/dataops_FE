@@ -52,12 +52,12 @@ export function DashboardPage() {
     refresh();
     
     try {
-      const [cData, sData] = await Promise.all([
+      const [cRes, sRes] = await Promise.allSettled([
         api.connectors(),
         api.stats()
       ]);
-      setConnectors(cData);
-      setStats(sData);
+      if (cRes.status === "fulfilled") setConnectors(cRes.value);
+      if (sRes.status === "fulfilled") setStats(sRes.value);
     } catch (err) {
       console.warn("Failed to fetch dashboard data:", err);
     } finally {
@@ -133,7 +133,6 @@ export function DashboardPage() {
               icon={Plug}
               accent="cyan"
               sub={`${connectors.filter((c) => c.status.toUpperCase() === "CONNECTED").length} connected`}
-              busy={!stats && connectors.length === 0}
             />
             <StatCard
               label="Pipelines"
@@ -141,14 +140,12 @@ export function DashboardPage() {
               icon={Activity}
               accent="violet"
               sub="tracked"
-              busy={!stats && state.pipelines.length === 0}
             />
             <StatCard
               label="Runs / 24h"
               value={stats?.runs_last_24h ?? 0}
               icon={Sparkles}
               accent="lime"
-              busy={!stats}
             />
             <StatCard
               label="Success rate"
@@ -156,7 +153,6 @@ export function DashboardPage() {
               icon={CheckCircle2}
               accent={stats && stats.success_rate_24h < 80 ? "rose" : "lime"}
               sub="last 24h"
-              busy={!stats}
             />
             <StatCard
               label="Failures"
@@ -164,7 +160,6 @@ export function DashboardPage() {
               icon={AlertTriangle}
               accent="rose"
               sub={`${stats?.pending_analyses ?? 0} pending analysis`}
-              busy={!stats}
             />
           </div>
 
