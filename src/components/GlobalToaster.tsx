@@ -28,7 +28,7 @@ export function GlobalToaster() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none max-w-sm w-full">
+    <div className="fixed top-6 right-6 z-9999 flex flex-col gap-3 pointer-events-none max-w-sm w-full">
       {toasts.map((toast) => (
         <div
           key={toast.id}
@@ -41,7 +41,7 @@ export function GlobalToaster() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-red-400">
               API Error
             </p>
-            <p className="mt-1 text-xs text-gray-200 break-words leading-relaxed font-medium">
+            <p className="mt-1 text-xs text-gray-200 wrap-break-word leading-relaxed font-medium">
               {toast.message}
             </p>
           </div>
