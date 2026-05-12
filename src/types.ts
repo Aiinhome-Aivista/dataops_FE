@@ -227,3 +227,27 @@ export interface ToolSpec {
   args_schema: Record<string, string>;
   risk: 'low' | 'medium' | 'high';
 }
+
+export interface Runbook {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  source: string;
+  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'AI GENERATED' | string;
+  last_updated: string;
+  last_updated_by: string;
+  risk_level: 'Low' | 'Medium' | 'High';
+  ai_usage_enabled: boolean;
+  rag_enabled: boolean;
+  ai_approved: boolean;
+  human_verified: boolean;
+  steps: string[];
+  associated_systems: string[];
+  last_incidents_used: string[];
+  version_history: string[];
+  tags: string[];
+  ai_confidence_score?: number;
+  linked_incidents_count?: number;
+}
+

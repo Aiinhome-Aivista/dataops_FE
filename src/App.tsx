@@ -10,6 +10,7 @@ import { MemoryPage } from './pages/Memory';
 import { RecommendationsPage } from './pages/Recommendations';
 import { ConnectorsPage } from './pages/Connectors';
 import { AuditPage } from './pages/Audit';
+import { RunbooksPage } from './pages/runbooks/RunbooksPage';
 import { LoginPage } from './pages/Login';
 import { LandingPage } from './pages/Landing';
 import { auth } from './services/api';
@@ -59,6 +60,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/app/audit': { 
     title: 'Audit Trail', 
     subtitle: 'Complete forensic record of all manual and automated actions' 
+  },
+  '/app/runbooks': {
+    title: 'Runbooks',
+    subtitle: 'Manage operational runbooks, SOPs, and AI remediation guides'
   }
 };
 
@@ -111,6 +116,7 @@ function Shell() {
               <Route path="/recommendations" element={<RecommendationsPage />} />
               <Route path="/connectors" element={<ConnectorsPage />} />
               <Route path="/audit" element={<AuditPage />} />
+              <Route path="/runbooks" element={<RunbooksPage />} />
             </Routes>
           </main>
         </div>
@@ -124,6 +130,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/runbooks" element={<Navigate to="/app/runbooks" replace />} />
       <Route
         path="/app/*"
         element={

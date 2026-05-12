@@ -13,6 +13,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useStore } from "../hooks/useStore";
@@ -22,6 +23,7 @@ const NAV = [
   { to: "/app", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/app/connectors", icon: Plug, label: "Connectors" },
   { to: "/app/pipelines", icon: Database, label: "Pipelines" },
+  { to: "/app/runbooks", icon: BookOpen, label: "Runbooks" },
   { to: "/app/incidents", icon: ShieldAlert, label: "Incident Loop" },
   { to: "/app/agents", icon: Brain, label: "Agent Mesh" },
   { to: "/app/memory", icon: History, label: "Memory" },
