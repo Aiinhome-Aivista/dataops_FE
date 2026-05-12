@@ -8,6 +8,7 @@ import {
   Database,
   Workflow,
   GitBranch,
+  Plug,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
@@ -146,6 +147,46 @@ export function ConnectorsPage() {
               accent="text-[#6B7280]"
             />
           </div>
+
+          {/* Empty State */}
+          {connectors.length === 0 && (
+            <div className="relative overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-12 text-center shadow-sm transition-all hover:shadow-md">
+              <div className="absolute -top-24 left-1/2 h-48 w-96 -translate-x-1/2 rounded-full bg-gradient-to-b from-sky-50 via-indigo-50/50 to-transparent blur-2xl pointer-events-none" />
+              
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-tr from-gray-900 to-gray-800 text-white shadow-xl shadow-gray-900/10 ring-8 ring-gray-50 animate-bounce">
+                  <Plug className="h-8 w-8 text-sky-400" strokeWidth={2} />
+                </div>
+
+                <h3 className="text-xl font-bold tracking-tight text-[#111827]">
+                  No Source Connectors Found
+                </h3>
+                <p className="mt-2 max-w-md text-xs leading-relaxed text-[#6B7280]">
+                  Get started by securely connecting your cloud platforms, metadata databases, or repositories. Once linked, the Agent Mesh will autonomously monitor pipeline health and trigger incident workflows.
+                </p>
+
+                <button
+                  onClick={() => {
+                    setOpenOnNew(true);
+                    setOpen(true);
+                  }}
+                  className="mt-8 inline-flex items-center gap-2 rounded-xl bg-[#111827] px-5 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-gray-900/10 transition-all hover:bg-black hover:scale-105 active:scale-95"
+                >
+                  <Plus className="h-4 w-4 text-sky-400" strokeWidth={2.5} />
+                  Connect First Source
+                </button>
+
+                <div className="mt-10 flex items-center gap-6 border-t border-[#F3F4F6] pt-8 text-[#9CA3AF]">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase">
+                    <span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> Secure Encryption
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Auto Sync
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* List by Type */}
           {Object.entries(grouped).map(([type, list]) => (
