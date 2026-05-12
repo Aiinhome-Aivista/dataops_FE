@@ -187,13 +187,36 @@ export function MemoryPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Mobile view: single column, standard order */}
+            <div className="grid grid-cols-1 gap-4 lg:hidden">
+              {visible.length === 0 ? (
+                <p className="text-center py-12 text-[#9CA3AF] italic text-sm">
+                  No memory entries.
+                </p>
+              ) : (
+                visible.map((m) => <MemoryCard key={m.id} m={m} />)
+              )}
+            </div>
+
+            {/* Desktop view: two independent columns (Masonry layout) */}
+            <div className="hidden lg:grid lg:grid-cols-2 gap-4 items-start">
               {visible.length === 0 ? (
                 <p className="col-span-2 text-center py-12 text-[#9CA3AF] italic text-sm">
                   No memory entries.
                 </p>
               ) : (
-                visible.map((m) => <MemoryCard key={m.id} m={m} />)
+                <>
+                  <div className="space-y-4">
+                    {visible.filter((_, i) => i % 2 === 0).map((m) => (
+                      <MemoryCard key={m.id} m={m} />
+                    ))}
+                  </div>
+                  <div className="space-y-4">
+                    {visible.filter((_, i) => i % 2 === 1).map((m) => (
+                      <MemoryCard key={m.id} m={m} />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -287,7 +310,7 @@ function MemoryCard({ m }: { m: MemoryEntry }) {
   }, [parsedRootCause]);
 
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-lg p-5 hover:border-gray-300 transition-colors flex flex-col h-full">
+    <div className="bg-white border border-[#E5E7EB] rounded-lg p-5 hover:border-gray-300 transition-colors flex flex-col h-fit">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold leading-snug">{m.title}</p>
