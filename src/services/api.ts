@@ -26,9 +26,11 @@ export const auth = {
 
 let activeRequests = 0;
 let loadingListener: ((loading: boolean) => void) | null = null;
+let errorListener: ((err: string) => void) | null = null;
 
 export const apiEvents = {
-  onLoading: (cb: (loading: boolean) => void) => { loadingListener = cb; }
+  onLoading: (cb: (loading: boolean) => void) => { loadingListener = cb; },
+  onError: (cb: (err: string) => void) => { errorListener = cb; },
 };
 
 function updateLoading(delta: number) {
@@ -48,11 +50,20 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     };
     const tok = auth.getToken();
     if (tok) headers["Authorization"] = `Bearer ${tok}`;
-    const res = await fetch(`${BASE}${path}`, { 
-      ...init, 
-      headers,
-      cache: 'no-store'
-    });
+    
+    let res;
+    try {
+      res = await fetch(`${BASE}${path}`, { 
+        ...init, 
+        headers,
+        cache: 'no-store'
+      });
+    } catch (e: any) {
+      const msg = e.message || "Network connection failed";
+      errorListener?.(msg);
+      throw e;
+    }
+
     if (res.status === 401) {
       auth.clearToken();
       if (!path.startsWith("/auth")) {
@@ -68,6 +79,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       } catch {
         // ignore
       }
+      errorListener?.(detail);
       throw new Error(detail);
     }
     return res.json() as Promise<T>;

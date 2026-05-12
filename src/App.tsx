@@ -14,6 +14,7 @@ import { LoginPage } from './pages/Login';
 import { LandingPage } from './pages/Landing';
 import { auth } from './services/api';
 import { GlobalLoader } from './components/GlobalLoader';
+import { GlobalToaster } from './components/GlobalToaster';
 import { Header } from './components/Header';
 import { ConnectorModal } from './components/ConnectorModal';
 import { useState } from 'react';
@@ -75,6 +76,7 @@ function Shell() {
   return (
     <StoreProvider>
       <GlobalLoader />
+      <GlobalToaster />
       {showConnectorModal && (
         <ConnectorModal
           open={showConnectorModal}
