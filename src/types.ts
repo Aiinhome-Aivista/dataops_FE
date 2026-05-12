@@ -228,26 +228,111 @@ export interface ToolSpec {
   risk: 'low' | 'medium' | 'high';
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Runbook — now backed by the backend `/runbooks` API
+// The legacy mock-data shape is kept here for backwards compat with the
+// existing `RunbookDetailPanel.tsx` component. We add optional backend-only
+// fields so the same component can render either shape.
+// ─────────────────────────────────────────────────────────────────────
 export interface Runbook {
-  id: string;
+  // legacy fields used by the existing UI components
+  id: string | number;
   title: string;
   category: string;
   description: string;
   source: string;
-  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'AI GENERATED' | string;
-  last_updated: string;
-  last_updated_by: string;
+  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'AI GENERATED' | 'PROCESSING' | 'FAILED' | string;
+  last_updated?: string;
+  last_updated_by?: string;
   risk_level: 'Low' | 'Medium' | 'High';
-  ai_usage_enabled: boolean;
+  ai_usage_enabled?: boolean;
   rag_enabled: boolean;
-  ai_approved: boolean;
-  human_verified: boolean;
-  steps: string[];
-  associated_systems: string[];
-  last_incidents_used: string[];
-  version_history: string[];
+  ai_approved?: boolean;
+  human_verified?: boolean;
+  steps?: string[];
+  associated_systems?: string[];
+  last_incidents_used?: string[];
+  version_history?: string[];
   tags: string[];
   ai_confidence_score?: number;
   linked_incidents_count?: number;
+
+  // backend-only (when sourced from /runbooks API)
+  source_filename?: string | null;
+  size_bytes?: number;
+  chunk_count?: number;
+  ingest_error?: string | null;
+  uploaded_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
+export interface RunbookSearchHit {
+  runbook_id: number | null;
+  title: string | null;
+  chunk_index: number | null;
+  similarity: number;
+  snippet: string;
+}
+
+export interface RunbookSearchResponse {
+  query: string;
+  hits: RunbookSearchHit[];
+  elapsed_ms: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Performance metrics
+// ─────────────────────────────────────────────────────────────────────
+export interface PipelinePerformance {
+  pipeline_id: number;
+  pipeline_name: string;
+  runs: number;
+  succeeded: number;
+  failed: number;
+  success_rate_pct: number;
+  avg_duration_sec: number;
+  min_duration_sec: number;
+  max_duration_sec: number;
+  p50_duration_sec: number;
+  p95_duration_sec: number;
+  p99_duration_sec: number;
+}
+
+export interface RagKindSummary {
+  query_count: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  hit_rate: number;
+  avg_top_similarity: number;
+}
+
+export interface RagPerformance {
+  collections: { incidents: number; runbooks: number };
+  summary: {
+    incidents: RagKindSummary;
+    runbooks: RagKindSummary;
+  };
+}
+
+export interface LlmPerformance {
+  call_count: number;
+  success_rate: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  avg_prompt_chars: number;
+}
+
+export interface SystemMetrics {
+  window_hours: number;
+  pipelines: {
+    count: number;
+    runs_total: number;
+    runs_succeeded: number;
+    runs_failed: number;
+    success_rate_pct: number;
+    top_5_busiest: PipelinePerformance[];
+  };
+  rag: RagPerformance;
+  llm: LlmPerformance;
+}

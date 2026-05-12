@@ -11,6 +11,7 @@ import { RecommendationsPage } from './pages/Recommendations';
 import { ConnectorsPage } from './pages/Connectors';
 import { AuditPage } from './pages/Audit';
 import { RunbooksPage } from './pages/runbooks/RunbooksPage';
+import { MetricsPage } from './pages/Metrics';                 // ← NEW
 import { LoginPage } from './pages/Login';
 import { LandingPage } from './pages/Landing';
 import { auth } from './services/api';
@@ -29,41 +30,45 @@ function RequireAuth({ children }: { children: ReactNode }) {
 }
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
-  '/app': { 
-    title: 'System Overview', 
-    subtitle: 'Autonomous Control Plane · Observe → Reason → Plan → Act → Learn' 
+  '/app': {
+    title: 'System Overview',
+    subtitle: 'Autonomous Control Plane · Observe → Reason → Plan → Act → Learn'
   },
-  '/app/pipelines': { 
-    title: 'Data Pipelines', 
-    subtitle: 'Monitor and manage cross-platform data processing workflows' 
+  '/app/pipelines': {
+    title: 'Data Pipelines',
+    subtitle: 'Monitor and manage cross-platform data processing workflows'
   },
-  '/app/incidents': { 
-    title: 'Incident Loop', 
-    subtitle: 'Real-time incident detection, analysis and automated remediation' 
+  '/app/incidents': {
+    title: 'Incident Loop',
+    subtitle: 'Real-time incident detection, analysis and automated remediation'
   },
-  '/app/agents': { 
-    title: 'Agent Mesh', 
-    subtitle: 'Autonomous AI agents collaborating on data operations' 
+  '/app/agents': {
+    title: 'Agent Mesh',
+    subtitle: 'Autonomous AI agents collaborating on data operations'
   },
-  '/app/connectors': { 
-    title: 'Source Connectors', 
-    subtitle: 'Manage secure connections to cloud platforms and repositories' 
+  '/app/connectors': {
+    title: 'Source Connectors',
+    subtitle: 'Manage secure connections to cloud platforms and repositories'
   },
-  '/app/memory': { 
-    title: 'System Memory', 
-    subtitle: 'Historical context and learned patterns for better decision making' 
+  '/app/memory': {
+    title: 'System Memory',
+    subtitle: 'Historical context and learned patterns for better decision making'
   },
-  '/app/recommendations': { 
-    title: 'Optimize', 
-    subtitle: 'AI-driven suggestions for performance and cost improvements' 
+  '/app/recommendations': {
+    title: 'Optimize',
+    subtitle: 'AI-driven suggestions for performance and cost improvements'
   },
-  '/app/audit': { 
-    title: 'Audit Trail', 
-    subtitle: 'Complete forensic record of all manual and automated actions' 
+  '/app/audit': {
+    title: 'Audit Trail',
+    subtitle: 'Complete forensic record of all manual and automated actions'
   },
   '/app/runbooks': {
     title: 'Runbooks',
-    subtitle: 'Manage operational runbooks, SOPs, and AI remediation guides'
+    subtitle: 'Upload SOPs · stored locally · indexed into the RAG vector store'
+  },
+  '/app/metrics': {                                            // ← NEW
+    title: 'Performance Metrics',
+    subtitle: 'Pipelines · RAG retrieval · Mistral LLM latency'
   }
 };
 
@@ -71,11 +76,10 @@ function Shell() {
   const { pathname } = useLocation();
   const [showConnectorModal, setShowConnectorModal] = useState(false);
 
-  // Find the closest match in PAGE_META
   const currentPath = Object.keys(PAGE_META)
     .sort((a, b) => b.length - a.length)
     .find(p => pathname === p || pathname.startsWith(p + '/')) || '/app';
-  
+
   const meta = PAGE_META[currentPath];
 
   return (
@@ -88,8 +92,6 @@ function Shell() {
           onClose={() => setShowConnectorModal(false)}
           initialView="list"
           onSuccess={() => {
-            // Signal to other components (like the Connectors page) that data has changed
-            // Using a tiny timeout to ensure the background page is ready to process the signal
             setTimeout(() => {
               window.dispatchEvent(new CustomEvent('connectors-updated'));
             }, 100);
@@ -97,10 +99,10 @@ function Shell() {
         />
       )}
       <div className="flex flex-col h-screen bg-[#F9FAFB] text-[#111827] overflow-hidden">
-        <Header 
-          title={meta.title} 
-          subtitle={meta.subtitle} 
-          onConnect={() => setShowConnectorModal(true)} 
+        <Header
+          title={meta.title}
+          subtitle={meta.subtitle}
+          onConnect={() => setShowConnectorModal(true)}
         />
         <div className="flex-1 flex overflow-hidden">
           <Sidebar />
@@ -117,6 +119,7 @@ function Shell() {
               <Route path="/connectors" element={<ConnectorsPage />} />
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/runbooks" element={<RunbooksPage />} />
+              <Route path="/metrics" element={<MetricsPage />} />        {/* ← NEW */}
             </Routes>
           </main>
         </div>

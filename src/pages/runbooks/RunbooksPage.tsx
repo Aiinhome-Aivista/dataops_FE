@@ -1,88 +1,151 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  BookOpen, 
-  Search, 
-  Plus, 
-  FileText, 
-  Sparkles, 
-  CheckCircle2, 
-  Edit3, 
-  Archive, 
-  PlayCircle,
-  ExternalLink,
-  Layers,
-  ChevronRight
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  BookOpen,
+  Search,
+  Plus,
+  FileText,
+  Sparkles,
+  CheckCircle2,
+  Edit3,
+  ChevronRight,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { StatCard } from '../../components/StatCard';
 import { CreateRunbookModal } from '../../components/runbooks/CreateRunbookModal';
 import { RunbookDetailPanel } from '../../components/runbooks/RunbookDetailPanel';
-import { INITIAL_RUNBOOKS } from '../../components/runbooks/mockData';
+import { api } from '../../services/api';
 import type { Runbook } from '../../types';
 import { timeAgo, cn } from '../../lib/utils';
 
-export function RunbooksPage() {
-  const [runbooks, setRunbooks] = useState<Runbook[]>(INITIAL_RUNBOOKS);
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'AI GENERATED'>('ALL');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedRunbookId, setSelectedRunbookId] = useState<string | null>(null);
+type FilterTab = 'ALL' | 'ACTIVE' | 'PROCESSING' | 'FAILED' | 'ARCHIVED';
 
-  // Compute stats
-  const stats = useMemo(() => {
-    const total = runbooks.filter(r => r.status !== 'ARCHIVED').length;
-    const active = runbooks.filter(r => r.status === 'ACTIVE').length;
-    const draft = runbooks.filter(r => r.status === 'DRAFT').length;
-    const aiGenerated = runbooks.filter(r => r.status === 'AI GENERATED' || r.last_updated_by.includes('AI')).length;
-    return { total, active, draft, aiGenerated };
+/**
+ * Adapts a backend Runbook payload into the shape the existing
+ * RunbookDetailPanel expects. The panel was built around the original mock
+ * shape (steps[], associated_systems, version_history, …). We synthesize
+ * sensible defaults so the same component still renders correctly.
+ */
+function hydrate(b: Runbook): Runbook {
+  return {
+    ...b,
+    last_updated: b.updated_at || b.created_at || new Date().toISOString(),
+    last_updated_by: b.uploaded_by || 'Unknown',
+    ai_usage_enabled: b.rag_enabled,
+    ai_approved: b.ai_approved ?? b.rag_enabled,
+    human_verified: b.human_verified ?? false,
+    steps: b.steps || [],
+    associated_systems: b.associated_systems || [],
+    last_incidents_used: b.last_incidents_used || [],
+    version_history: b.version_history || ['v1.0.0'],
+    tags: b.tags || [],
+    linked_incidents_count: b.linked_incidents_count ?? 0,
+  };
+}
+
+export function RunbooksPage() {
+  const [runbooks, setRunbooks] = useState<Runbook[]>([]);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<FilterTab>('ALL');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedRunbookId, setSelectedRunbookId] = useState<string | number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const pollRef = useRef<number | null>(null);
+
+  const fetchAll = async () => {
+    try {
+      const list = await api.runbooks(true /* include archived */);
+      setRunbooks(list.map(hydrate));
+      setError(null);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load runbooks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAll();
+  }, []);
+
+  // While any runbook is still PROCESSING, poll every 3s so the UI updates
+  // when ingestion completes in the background.
+  useEffect(() => {
+    const stillProcessing = runbooks.some(r => r.status === 'PROCESSING');
+    if (stillProcessing && pollRef.current == null) {
+      pollRef.current = window.setInterval(fetchAll, 3000);
+    } else if (!stillProcessing && pollRef.current != null) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    return () => {
+      if (pollRef.current != null) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
   }, [runbooks]);
 
-  // Filtered and searched list
-  const filteredRunbooks = useMemo(() => {
+  const stats = useMemo(() => {
+    const total      = runbooks.filter(r => r.status !== 'ARCHIVED').length;
+    const active     = runbooks.filter(r => r.status === 'ACTIVE').length;
+    const processing = runbooks.filter(r => r.status === 'PROCESSING').length;
+    const indexed    = runbooks.reduce((acc, r) => acc + (r.chunk_count || 0), 0);
+    return { total, active, processing, indexed };
+  }, [runbooks]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
     return runbooks.filter(r => {
-      // Search matching
-      const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase()) ||
-        r.category.toLowerCase().includes(search.toLowerCase()) ||
-        r.description.toLowerCase().includes(search.toLowerCase());
-
+      const matchesSearch =
+        !q ||
+        r.title.toLowerCase().includes(q) ||
+        r.category.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q) ||
+        (r.tags || []).some(t => t.toLowerCase().includes(q));
       if (!matchesSearch) return false;
-
-      // Filter tabs matching
       if (filter === 'ALL') return r.status !== 'ARCHIVED';
-      return r.status.toUpperCase() === filter;
+      return r.status === filter;
     });
   }, [runbooks, search, filter]);
 
-  // Selected item object
-  const selectedRunbook = useMemo(() => {
-    return runbooks.find(r => r.id === selectedRunbookId) || null;
-  }, [runbooks, selectedRunbookId]);
+  const selectedRunbook = useMemo(
+    () => runbooks.find(r => String(r.id) === String(selectedRunbookId)) || null,
+    [runbooks, selectedRunbookId],
+  );
 
-  // Handlers
-  const handleSaveRunbook = (newRunbookData: Omit<Runbook, 'id' | 'last_updated' | 'last_updated_by' | 'status'>) => {
-    const created: Runbook = {
-      ...newRunbookData,
-      id: `rb-${Date.now().toString().slice(-4)}`,
-      status: 'ACTIVE',
-      last_updated: new Date().toISOString(),
-      last_updated_by: 'Current User (Operator)'
-    };
-    setRunbooks([created, ...runbooks]);
+  const handleSaved = (rb: Runbook) => {
+    setRunbooks(prev => [hydrate(rb), ...prev]);
   };
 
-  const handleArchive = (id: string) => {
-    setRunbooks(runbooks.map(r => r.id === id ? { ...r, status: 'ARCHIVED' } : r));
+  const handleArchive = async (id: string | number) => {
+    try {
+      const updated = await api.archiveRunbook(id);
+      setRunbooks(prev => prev.map(r => (String(r.id) === String(id) ? hydrate(updated) : r)));
+    } catch (e: any) {
+      setError(e?.message || 'Archive failed');
+    }
   };
 
-  const handleUpdateStatus = (id: string, newStatus: string) => {
-    setRunbooks(runbooks.map(r => r.id === id ? { ...r, status: newStatus } : r));
+  const handleDelete = async (id: string | number) => {
+    if (!confirm('Permanently delete this runbook and its vector chunks?')) return;
+    try {
+      await api.deleteRunbook(id);
+      setRunbooks(prev => prev.filter(r => String(r.id) !== String(id)));
+      if (String(selectedRunbookId) === String(id)) setSelectedRunbookId(null);
+    } catch (e: any) {
+      setError(e?.message || 'Delete failed');
+    }
   };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
       <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-8">
-          
-          {/* Top Header Strip inside Main Area */}
+          {/* Header strip */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200/60">
             <div>
               <div className="flex items-center gap-2">
@@ -90,77 +153,67 @@ export function RunbooksPage() {
                 <h1 className="text-xl font-bold tracking-tight text-[#111827]">Runbooks</h1>
               </div>
               <p className="text-xs text-[#6B7280] mt-1">
-                Manage operational runbooks, SOPs, and AI remediation guides
+                Upload PDF/DOCX runbooks · stored locally · indexed into the RAG vector store
               </p>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg transition-all shadow-md active:scale-95 shrink-0"
-            >
-              <Plus className="w-4 h-4 text-sky-400" strokeWidth={2.5} />
-              CREATE RUNBOOK
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchAll}
+                className="inline-flex items-center gap-1 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold uppercase tracking-widest rounded-lg transition-all shadow-sm"
+                title="Refresh"
+              >
+                <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+                Refresh
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg transition-all shadow-md active:scale-95"
+              >
+                <Plus className="w-4 h-4 text-sky-400" strokeWidth={2.5} />
+                Upload Runbook
+              </button>
+            </div>
           </div>
 
-          {/* STATS CARDS SECTION */}
+          {/* Error banner */}
+          {error && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs px-3 py-2 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard
-              label="Total Runbooks"
-              value={stats.total}
-              icon={BookOpen}
-              accent="violet"
-              sub="tracked operational procedures"
-            />
-            <StatCard
-              label="Active"
-              value={stats.active}
-              icon={CheckCircle2}
-              accent="emerald"
-              sub="ready for execution"
-            />
-            <StatCard
-              label="Draft"
-              value={stats.draft}
-              icon={Edit3}
-              accent="amber"
-              sub="pending verification"
-            />
-            <StatCard
-              label="AI Generated"
-              value={stats.aiGenerated}
-              icon={Sparkles}
-              accent="cyan"
-              sub="autonomous reasoning context"
-            />
+            <StatCard label="Total Runbooks" value={stats.total} icon={BookOpen} accent="violet" sub="tracked operational SOPs" />
+            <StatCard label="Active" value={stats.active} icon={CheckCircle2} accent="emerald" sub="indexed in vector DB" />
+            <StatCard label="Processing" value={stats.processing} icon={Loader2} accent="amber" sub="being chunked & embedded" />
+            <StatCard label="Indexed Chunks" value={stats.indexed} icon={Sparkles} accent="cyan" sub="vectors in Chroma" />
           </div>
 
-          {/* MAIN CONTENT SECTION */}
+          {/* Toolbar */}
           <div className="space-y-6">
-            {/* Top toolbar */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-[#E5E7EB] p-3 rounded-xl shadow-sm">
-              {/* Search input */}
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
                 <input
                   type="text"
-                  placeholder="Search runbooks, SOPs, or tags..."
+                  placeholder="Search runbooks, tags, or descriptions…"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={e => setSearch(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 text-xs bg-[#F9FAFB] border border-transparent rounded-lg focus:border-gray-300 focus:bg-white outline-none transition-colors"
                 />
               </div>
-
-              {/* Filter tabs */}
               <div className="flex flex-wrap items-center gap-1 bg-[#F9FAFB] p-1 rounded-lg border border-gray-100">
-                {(['ALL', 'ACTIVE', 'DRAFT', 'ARCHIVED', 'AI GENERATED'] as const).map((tab) => (
+                {(['ALL', 'ACTIVE', 'PROCESSING', 'FAILED', 'ARCHIVED'] as FilterTab[]).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setFilter(tab)}
                     className={cn(
-                      "px-3 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-md transition-all whitespace-nowrap",
+                      'px-3 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-md transition-all whitespace-nowrap',
                       filter === tab
-                        ? "bg-[#111827] text-white shadow-sm"
-                        : "text-[#6B7280] hover:bg-gray-200/50 hover:text-[#111827]"
+                        ? 'bg-[#111827] text-white shadow-sm'
+                        : 'text-[#6B7280] hover:bg-gray-200/50 hover:text-[#111827]',
                     )}
                   >
                     {tab}
@@ -169,68 +222,49 @@ export function RunbooksPage() {
               </div>
             </div>
 
-            {/* Table or Empty State */}
-            {filteredRunbooks.length === 0 ? (
-              /* EMPTY STATE UI */
+            {/* Table / empty */}
+            {loading ? (
+              <div className="bg-white border border-[#E5E7EB] rounded-xl p-16 text-center shadow-sm">
+                <Loader2 className="w-6 h-6 text-gray-400 animate-spin mx-auto" />
+                <p className="text-xs text-gray-500 mt-3">Loading runbooks…</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="bg-white border border-[#E5E7EB] rounded-xl p-16 text-center shadow-sm flex flex-col items-center">
                 <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center mb-4 shadow-inner">
                   <FileText className="w-6 h-6 text-gray-400 stroke-1" />
                 </div>
                 <h3 className="text-base font-bold text-[#111827]">No Runbooks Found</h3>
                 <p className="text-xs text-[#6B7280] max-w-sm mt-1.5 leading-relaxed">
-                  Create operational runbooks and AI remediation guides for autonomous incident resolution.
+                  Upload a PDF or DOCX so AI agents can retrieve it during incident diagnosis.
                 </p>
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow transition-all active:scale-95"
+                  className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow active:scale-95"
                 >
-                  <Plus className="w-3.5 h-3.5 text-sky-400" /> CREATE FIRST RUNBOOK
+                  <Plus className="w-3.5 h-3.5 text-sky-400" /> Upload first runbook
                 </button>
-                
-                {/* Small helper labels below */}
-                <div className="mt-8 flex items-center gap-6 border-t border-gray-100 pt-6 text-[#9CA3AF]">
-                  <span className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider">
-                    <Sparkles className="w-3 h-3 text-sky-500 fill-sky-500" /> AI Retrieval Ready
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Version Controlled
-                  </span>
-                </div>
               </div>
             ) : (
-              /* Table View */
               <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
-                        Runbook Name
-                      </th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
-                        Category
-                      </th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
-                        Source
-                      </th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
-                        Status
-                      </th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
-                        Last Updated
-                      </th>
-                      <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
-                        Actions
-                      </th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Runbook</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Category</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Source</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Chunks</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Status</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Updated</th>
+                      <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F3F4F6]">
-                    {filteredRunbooks.map((rb) => (
+                    {filtered.map(rb => (
                       <tr
                         key={rb.id}
                         onClick={() => setSelectedRunbookId(rb.id)}
                         className="hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
                       >
-                        {/* Runbook Name */}
                         <td className="px-6 py-4 min-w-[220px]">
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
@@ -238,60 +272,72 @@ export function RunbooksPage() {
                                 {rb.title}
                               </span>
                               {rb.rag_enabled && (
-                                <span className="bg-blue-50 text-blue-600 border border-blue-100 text-[8px] font-bold uppercase px-1.5 py-0.2 rounded" title="AI Agents can retrieve this SOP">
+                                <span
+                                  className="bg-blue-50 text-blue-600 border border-blue-100 text-[8px] font-bold uppercase px-1.5 py-0.2 rounded"
+                                  title="Indexed in vector DB"
+                                >
                                   RAG
                                 </span>
                               )}
                             </div>
                             <span className="text-[10px] text-[#9CA3AF] font-medium mt-0.5 line-clamp-1 max-w-md">
-                              {rb.description}
+                              {rb.description || rb.source_filename}
                             </span>
                           </div>
                         </td>
 
-                        {/* Category */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md">
                             {rb.category}
                           </span>
                         </td>
 
-                        {/* Source */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-[11px] font-mono font-semibold text-gray-600 bg-gray-50 border border-gray-200/60 px-1.5 py-0.5 rounded">
                             {rb.source}
                           </span>
                         </td>
 
-                        {/* Status */}
+                        <td className="px-6 py-4 whitespace-nowrap text-[11px] font-semibold text-gray-700">
+                          {rb.chunk_count ?? 0}
+                        </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={cn(
-                            "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full inline-block border",
-                            rb.status === 'ACTIVE' 
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                              : rb.status === 'DRAFT'
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : rb.status === 'AI GENERATED'
-                              ? "bg-cyan-50 text-cyan-700 border-cyan-200"
-                              : "bg-gray-50 text-gray-400 border-gray-200"
-                          )}>
+                          <span
+                            className={cn(
+                              'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full inline-flex items-center gap-1 border',
+                              rb.status === 'ACTIVE'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : rb.status === 'PROCESSING'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : rb.status === 'FAILED'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : 'bg-gray-50 text-gray-400 border-gray-200',
+                            )}
+                          >
+                            {rb.status === 'PROCESSING' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                             {rb.status}
                           </span>
                         </td>
 
-                        {/* Last Updated */}
                         <td className="px-6 py-4 whitespace-nowrap text-[11px] font-medium text-[#9CA3AF]">
-                          {timeAgo(rb.last_updated)}
+                          {timeAgo(rb.last_updated || rb.updated_at || rb.created_at || '')}
                         </td>
 
-                        {/* Actions */}
-                        <td className="px-6 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-6 py-4 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => setSelectedRunbookId(rb.id)}
                               className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] hover:text-[#111827] inline-flex items-center gap-1 transition-all"
                             >
                               view <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(rb.id)}
+                              className="text-[10px] font-bold uppercase tracking-widest text-rose-400 hover:text-rose-600 transition-all"
+                              title="Delete runbook + vectors"
+                            >
+                              delete
                             </button>
                           </div>
                         </td>
@@ -305,19 +351,13 @@ export function RunbooksPage() {
         </div>
       </main>
 
-      {/* CREATE RUNBOOK MODAL */}
-      <CreateRunbookModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSave={handleSaveRunbook}
-      />
+      {/* Modals */}
+      <CreateRunbookModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onSaved={handleSaved} />
 
-      {/* RUNBOOK DETAIL PANEL */}
       <RunbookDetailPanel
         runbook={selectedRunbook}
         onClose={() => setSelectedRunbookId(null)}
         onArchive={handleArchive}
-        onUpdateStatus={handleUpdateStatus}
       />
     </div>
   );

@@ -1,43 +1,48 @@
-import React, { useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { 
-  X, 
-  FileText, 
-  Download, 
-  Archive, 
-  Edit3, 
-  CheckCircle2, 
-  Sparkles, 
-  Layers, 
-  ShieldCheck, 
-  GitCommit, 
+import React, { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  X,
+  FileText,
+  Download,
+  Archive,
+  Edit3,
+  CheckCircle2,
+  Sparkles,
+  Layers,
+  ShieldCheck,
+  GitCommit,
   HelpCircle,
   ExternalLink,
-  Activity
-} from 'lucide-react';
-import type { Runbook } from '../../types';
-import { timeAgo, cn } from '../../lib/utils';
+  Activity,
+} from "lucide-react";
+import type { Runbook } from "../../types";
+import { timeAgo, cn } from "../../lib/utils";
 
 interface Props {
   runbook: Runbook | null;
   onClose: () => void;
-  onArchive?: (id: string) => void;
-  onUpdateStatus?: (id: string, newStatus: string) => void;
+  onArchive?: (id: string | number) => void;
+  onUpdateStatus?: (id: string | number, newStatus: string) => void;
 }
 
-export function RunbookDetailPanel({ runbook, onClose, onArchive, onUpdateStatus }: Props) {
-  const [activeTab, setActiveTab] = useState<'steps' | 'source'>('steps');
+export function RunbookDetailPanel({
+  runbook,
+  onClose,
+  onArchive,
+  onUpdateStatus,
+}: Props) {
+  const [activeTab, setActiveTab] = useState<"steps" | "source">("steps");
 
   if (!runbook) return null;
 
   const handleDownload = () => {
     // Generate dummy text blob file to simulate download
-    const content = `# ${runbook.title}\n\nCategory: ${runbook.category}\nRisk Tier: ${runbook.risk_level}\nLast Updated: ${runbook.last_updated}\n\n## Description\n${runbook.description}\n\n## Remediation Steps\n${runbook.steps.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const content = `# ${runbook.title}\n\nCategory: ${runbook.category}\nRisk Tier: ${runbook.risk_level}\nLast Updated: ${runbook.last_updated}\n\n## Description\n${runbook.description}\n\n## Remediation Steps\n${runbook.steps.map((s, idx) => `${idx + 1}. ${s}`).join("\n")}`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `${runbook.title.replace(/\s+/g, '_').toLowerCase()}_sop.${runbook.source.toLowerCase() === 'markdown' ? 'md' : 'txt'}`;
+    link.download = `${runbook.title.replace(/\s+/g, "_").toLowerCase()}_sop.${runbook.source.toLowerCase() === "markdown" ? "md" : "txt"}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -49,14 +54,14 @@ export function RunbookDetailPanel({ runbook, onClose, onArchive, onUpdateStatus
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/40 z-[60] flex justify-end"
+        className="fixed inset-0 bg-black/40 z-60 flex justify-end"
         onClick={onClose}
       >
         <motion.div
-          initial={{ x: '100%' }}
+          initial={{ x: "100%" }}
           animate={{ x: 0 }}
-          exit={{ x: '100%' }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          exit={{ x: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
           className="w-full max-w-2xl bg-white h-full flex flex-col border-l border-[#E5E7EB] shadow-2xl relative"
           onClick={(e) => e.stopPropagation()}
         >
@@ -72,22 +77,33 @@ export function RunbookDetailPanel({ runbook, onClose, onArchive, onUpdateStatus
                     <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
                       {runbook.category}
                     </span>
-                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
-                      runbook.risk_level === 'Low' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                      runbook.risk_level === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                      'bg-rose-50 text-rose-700 border-rose-200'
-                    }`}>
+                    <span
+                      className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                        runbook.risk_level === "Low"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : runbook.risk_level === "Medium"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-rose-50 text-rose-700 border-rose-200"
+                      }`}
+                    >
                       {runbook.risk_level} Risk
                     </span>
                     {runbook.ai_confidence_score && (
                       <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
-                        <Sparkles className="w-2.5 h-2.5 fill-blue-600" /> {runbook.ai_confidence_score}% AI Confidence
+                        <Sparkles className="w-2.5 h-2.5 fill-blue-600" />{" "}
+                        {runbook.ai_confidence_score}% AI Confidence
                       </span>
                     )}
                   </div>
-                  <h2 className="text-lg font-bold text-[#111827] mt-1.5 truncate">{runbook.title}</h2>
+                  <h2 className="text-lg font-bold text-[#111827] mt-1.5 truncate">
+                    {runbook.title}
+                  </h2>
                   <p className="text-xs text-[#9CA3AF] mt-0.5">
-                    Updated by <span className="text-gray-700 font-medium">{runbook.last_updated_by}</span> · {timeAgo(runbook.last_updated)}
+                    Updated by{" "}
+                    <span className="text-gray-700 font-medium">
+                      {runbook.last_updated_by}
+                    </span>{" "}
+                    · {timeAgo(runbook.last_updated)}
                   </p>
                 </div>
               </div>
@@ -101,34 +117,49 @@ export function RunbookDetailPanel({ runbook, onClose, onArchive, onUpdateStatus
 
             {/* AI Context Badges */}
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-200/60">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Context:</span>
-              
+              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
+                Context:
+              </span>
+
               {/* Tooltip trigger wrapper */}
               <div className="relative group/badge">
-                <span className={`text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 cursor-help transition-colors ${
-                  runbook.rag_enabled 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100' 
-                    : 'bg-gray-50 text-gray-400 border border-gray-200'
-                }`}>
+                <span
+                  className={`text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 cursor-help transition-colors ${
+                    runbook.rag_enabled
+                      ? "bg-blue-50 text-blue-700 border border-blue-100"
+                      : "bg-gray-50 text-gray-400 border border-gray-200"
+                  }`}
+                >
                   <Sparkles className="w-3 h-3 text-sky-500" /> RAG Enabled
                 </span>
                 {/* Tooltip */}
                 <div className="absolute left-0 bottom-full mb-2 hidden group-hover/badge:block z-50 w-64 p-2 bg-gray-900 text-white text-[11px] leading-tight rounded-lg shadow-xl font-sans pointer-events-none animate-in fade-in duration-200">
-                  This runbook can be retrieved by AI agents during incident remediation.
+                  This runbook can be retrieved by AI agents during incident
+                  remediation.
                   <div className="absolute top-full left-4 border-4 border-transparent border-t-gray-900" />
                 </div>
               </div>
 
-              <span className={`text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 ${
-                runbook.ai_approved ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-gray-100 text-gray-400'
-              }`}>
-                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> AI Approved
+              <span
+                className={`text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 ${
+                  runbook.ai_approved
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                    : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> AI
+                Approved
               </span>
 
-              <span className={`text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 ${
-                runbook.human_verified ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
-              }`}>
-                <ShieldCheck className="w-3 h-3" /> {runbook.human_verified ? 'Human Verified' : 'Unverified Draft'}
+              <span
+                className={`text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 ${
+                  runbook.human_verified
+                    ? "bg-purple-50 text-purple-700 border border-purple-100"
+                    : "bg-amber-50 text-amber-700 border border-amber-100"
+                }`}
+              >
+                <ShieldCheck className="w-3 h-3" />{" "}
+                {runbook.human_verified ? "Human Verified" : "Unverified Draft"}
               </span>
             </div>
           </div>
@@ -136,24 +167,28 @@ export function RunbookDetailPanel({ runbook, onClose, onArchive, onUpdateStatus
           {/* Center Tabs Bar */}
           <div className="flex border-b border-[#E5E7EB] px-6 bg-white shrink-0">
             <button
-              onClick={() => setActiveTab('steps')}
+              onClick={() => setActiveTab("steps")}
               className={`py-3 text-xs font-bold uppercase tracking-widest relative px-4 transition-colors ${
-                activeTab === 'steps' ? 'text-[#111827]' : 'text-[#9CA3AF] hover:text-gray-700'
+                activeTab === "steps"
+                  ? "text-[#111827]"
+                  : "text-[#9CA3AF] hover:text-gray-700"
               }`}
             >
               Steps Timeline
-              {activeTab === 'steps' && (
+              {activeTab === "steps" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#111827]" />
               )}
             </button>
             <button
-              onClick={() => setActiveTab('source')}
+              onClick={() => setActiveTab("source")}
               className={`py-3 text-xs font-bold uppercase tracking-widest relative px-4 transition-colors ${
-                activeTab === 'source' ? 'text-[#111827]' : 'text-[#9CA3AF] hover:text-gray-700'
+                activeTab === "source"
+                  ? "text-[#111827]"
+                  : "text-[#9CA3AF] hover:text-gray-700"
               }`}
             >
               Source / Markdown Preview
-              {activeTab === 'source' && (
+              {activeTab === "source" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#111827]" />
               )}
             </button>
@@ -163,16 +198,20 @@ export function RunbookDetailPanel({ runbook, onClose, onArchive, onUpdateStatus
           <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
             {/* Description Card */}
             <div>
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1.5">Description</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1.5">
+                Description
+              </h4>
               <p className="text-xs text-[#4B5563] leading-relaxed bg-gray-50/50 p-3 rounded-lg border border-gray-100">
                 {runbook.description}
               </p>
             </div>
 
             {/* Content Tabs Switcher */}
-            {activeTab === 'steps' ? (
+            {activeTab === "steps" ? (
               <div className="space-y-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Remediation Workflow Timeline</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
+                  Remediation Workflow Timeline
+                </h4>
                 <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
                   {runbook.steps.map((step, i) => (
                     <div key={i} className="relative group">
@@ -181,7 +220,9 @@ export function RunbookDetailPanel({ runbook, onClose, onArchive, onUpdateStatus
                         {i + 1}
                       </span>
                       <div className="bg-white border border-[#E5E7EB] p-3.5 rounded-xl shadow-sm hover:border-gray-400 transition-colors">
-                        <p className="text-xs text-[#111827] font-medium leading-relaxed">{step}</p>
+                        <p className="text-xs text-[#111827] font-medium leading-relaxed">
+                          {step}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -190,16 +231,20 @@ export function RunbookDetailPanel({ runbook, onClose, onArchive, onUpdateStatus
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Markdown Code Preview</h4>
-                  <span className="text-[10px] font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Format: {runbook.source}</span>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
+                    Markdown Code Preview
+                  </h4>
+                  <span className="text-[10px] font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                    Format: {runbook.source}
+                  </span>
                 </div>
                 <div className="bg-gray-900 text-gray-100 p-4 rounded-xl font-mono text-xs overflow-x-auto shadow-inner border border-gray-800 custom-scrollbar max-h-80">
                   <pre className="whitespace-pre-wrap leading-normal">
-{`---
+                    {`---
 title: "${runbook.title}"
 category: "${runbook.category}"
 risk: "${runbook.risk_level}"
-tags: [${runbook.tags.map(t => `"${t}"`).join(', ')}]
+tags: [${runbook.tags.map((t) => `"${t}"`).join(", ")}]
 ---
 
 # ${runbook.title}
@@ -208,7 +253,7 @@ tags: [${runbook.tags.map(t => `"${t}"`).join(', ')}]
 
 ## Remediation Sequence
 
-${runbook.steps.map((s, idx) => `${idx + 1}. ${s}`).join('\n\n')}
+${runbook.steps.map((s, idx) => `${idx + 1}. ${s}`).join("\n\n")}
 
 ## Verification Indicators
 - Monitor backend server logs to affirm recovery stability.
@@ -224,11 +269,15 @@ ${runbook.steps.map((s, idx) => `${idx + 1}. ${s}`).join('\n\n')}
               {/* Associated Systems */}
               <div>
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2.5 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-gray-400" /> Associated Target Systems
+                  <Layers className="w-3.5 h-3.5 text-gray-400" /> Associated
+                  Target Systems
                 </h4>
                 <div className="flex flex-wrap gap-1.5">
                   {runbook.associated_systems.map((sys, idx) => (
-                    <span key={idx} className="text-xs font-medium bg-[#F3F4F6] text-[#374151] px-2.5 py-1 rounded-md border border-gray-200/60">
+                    <span
+                      key={idx}
+                      className="text-xs font-medium bg-[#F3F4F6] text-[#374151] px-2.5 py-1 rounded-md border border-gray-200/60"
+                    >
                       {sys}
                     </span>
                   ))}
@@ -238,14 +287,23 @@ ${runbook.steps.map((s, idx) => `${idx + 1}. ${s}`).join('\n\n')}
               {/* Linked Incidents */}
               <div>
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2.5 flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-gray-400" /> Linked Incidents Usage ({runbook.linked_incidents_count ?? runbook.last_incidents_used.length})
+                  <Activity className="w-3.5 h-3.5 text-gray-400" /> Linked
+                  Incidents Usage (
+                  {runbook.linked_incidents_count ??
+                    runbook.last_incidents_used.length}
+                  )
                 </h4>
                 {runbook.last_incidents_used.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No historical incident remediations tracked yet.</p>
+                  <p className="text-xs text-gray-400 italic">
+                    No historical incident remediations tracked yet.
+                  </p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {runbook.last_incidents_used.map((inc, idx) => (
-                      <span key={idx} className="text-xs font-bold text-blue-600 bg-blue-50 hover:underline cursor-pointer px-2 py-0.5 rounded border border-blue-100 inline-flex items-center gap-1">
+                      <span
+                        key={idx}
+                        className="text-xs font-bold text-blue-600 bg-blue-50 hover:underline cursor-pointer px-2 py-0.5 rounded border border-blue-100 inline-flex items-center gap-1"
+                      >
                         {inc} <ExternalLink className="w-2.5 h-2.5" />
                       </span>
                     ))}
@@ -257,14 +315,20 @@ ${runbook.steps.map((s, idx) => `${idx + 1}. ${s}`).join('\n\n')}
             {/* Version History */}
             <div className="border-t border-[#E5E7EB] pt-6">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2.5 flex items-center gap-1.5">
-                <GitCommit className="w-3.5 h-3.5 text-gray-400" /> Version Control Releases
+                <GitCommit className="w-3.5 h-3.5 text-gray-400" /> Version
+                Control Releases
               </h4>
               <div className="flex flex-wrap gap-2">
                 {runbook.version_history.map((ver, idx) => (
-                  <div key={idx} className={`px-2.5 py-1 rounded text-xs font-mono border ${
-                    idx === 0 ? 'bg-gray-900 text-white font-bold border-gray-900' : 'bg-white text-gray-500 border-gray-200'
-                  }`}>
-                    {ver} {idx === 0 && '· Latest'}
+                  <div
+                    key={idx}
+                    className={`px-2.5 py-1 rounded text-xs font-mono border ${
+                      idx === 0
+                        ? "bg-gray-900 text-white font-bold border-gray-900"
+                        : "bg-white text-gray-500 border-gray-200"
+                    }`}
+                  >
+                    {ver} {idx === 0 && "· Latest"}
                   </div>
                 ))}
               </div>
@@ -276,17 +340,17 @@ ${runbook.steps.map((s, idx) => `${idx + 1}. ${s}`).join('\n\n')}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  const s = runbook.status === 'ACTIVE' ? 'DRAFT' : 'ACTIVE';
+                  const s = runbook.status === "ACTIVE" ? "DRAFT" : "ACTIVE";
                   if (onUpdateStatus) onUpdateStatus(runbook.id, s);
                 }}
                 className="px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5"
                 title="Toggle Activation State"
               >
-                <Edit3 className="w-3.5 h-3.5 text-gray-500" /> 
-                {runbook.status === 'ACTIVE' ? 'Set to Draft' : 'Activate SOP'}
+                <Edit3 className="w-3.5 h-3.5 text-gray-500" />
+                {runbook.status === "ACTIVE" ? "Set to Draft" : "Activate SOP"}
               </button>
 
-              {onArchive && runbook.status !== 'ARCHIVED' && (
+              {onArchive && runbook.status !== "ARCHIVED" && (
                 <button
                   onClick={() => {
                     onArchive(runbook.id);

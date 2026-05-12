@@ -11,6 +11,12 @@ import type {
   MetricsSummary,
   Pipeline,
   Recommendation,
+  Runbook,
+  RunbookSearchResponse,
+  PipelinePerformance,
+  RagPerformance,
+  LlmPerformance,
+  SystemMetrics,
   ToolSpec,
 } from "../types";
 
@@ -50,13 +56,13 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     };
     const tok = auth.getToken();
     if (tok) headers["Authorization"] = `Bearer ${tok}`;
-    
+
     let res;
     try {
-      res = await fetch(`${BASE}${path}`, { 
-        ...init, 
+      res = await fetch(`${BASE}${path}`, {
+        ...init,
         headers,
-        cache: 'no-store'
+        cache: "no-store",
       });
     } catch (e: any) {
       const msg = e.message || "Network connection failed";
@@ -82,6 +88,46 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       errorListener?.(detail);
       throw new Error(detail);
     }
+    if (res.status === 204) return undefined as unknown as T;
+    return res.json() as Promise<T>;
+  } finally {
+    updateLoading(-1);
+  }
+}
+
+/**
+ * Multipart upload helper. Cannot use req() because that one hard-codes
+ * Content-Type: application/json, which kills the multipart boundary.
+ */
+async function uploadForm<T>(path: string, formData: FormData): Promise<T> {
+  updateLoading(1);
+  try {
+    const headers: Record<string, string> = {};
+    const tok = auth.getToken();
+    if (tok) headers["Authorization"] = `Bearer ${tok}`;
+
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      body: formData,
+      headers,
+    });
+
+    if (res.status === 401) {
+      auth.clearToken();
+      window.location.href = "/login";
+      throw new Error("unauthenticated");
+    }
+    if (!res.ok) {
+      let detail = `${res.status} ${res.statusText}`;
+      try {
+        const body = await res.json();
+        if (body?.detail) detail = body.detail;
+      } catch {
+        /* ignore */
+      }
+      errorListener?.(detail);
+      throw new Error(detail);
+    }
     return res.json() as Promise<T>;
   } finally {
     updateLoading(-1);
@@ -98,7 +144,7 @@ export const api = {
   health: () => req<{ status: string; env: string; llm: string }>("/health"),
 
   pipelines: (params?: { connector_id?: string | number }) => {
-    const q = params?.connector_id ? `?connector_id=${params.connector_id}` : '';
+    const q = params?.connector_id ? `?connector_id=${params.connector_id}` : "";
     return req<Pipeline[]>(`/pipelines${q}`);
   },
   pipeline: (id: string) => req<Pipeline>(`/pipelines/${id}`),
@@ -143,8 +189,6 @@ export const api = {
       if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
       return r.json() as Promise<{ deleted: number; status: string }>;
     }),
-
-  // agents: () => req<AgentStatus[]>("/agents"), // Disabled: Not needed for current version
 
   memory: (kind?: string) =>
     req<MemoryEntry[]>(`/memory${kind ? `?kind=${kind}` : ""}`),
@@ -220,6 +264,71 @@ export const api = {
       method: "POST",
       body: JSON.stringify(credentials),
     }),
+
+  // ─────────────────────────────────────────────────────────────────
+  // NEW: Runbooks
+  // ─────────────────────────────────────────────────────────────────
+  runbooks: (includeArchived = false) =>
+    req<Runbook[]>(`/runbooks${includeArchived ? "?include_archived=true" : ""}`),
+
+  runbook: (id: number | string) => req<Runbook>(`/runbooks/${id}`),
+
+  uploadRunbook: (params: {
+    file: File;
+    title?: string;
+    category?: string;
+    description?: string;
+    risk_level?: "Low" | "Medium" | "High";
+    tags?: string[];
+    rag_enabled?: boolean;
+  }) => {
+    const fd = new FormData();
+    fd.append("file", params.file);
+    if (params.title)       fd.append("title", params.title);
+    if (params.category)    fd.append("category", params.category);
+    if (params.description) fd.append("description", params.description);
+    if (params.risk_level)  fd.append("risk_level", params.risk_level);
+    if (params.tags?.length) fd.append("tags_csv", params.tags.join(","));
+    fd.append("rag_enabled", String(params.rag_enabled ?? true));
+    return uploadForm<Runbook>("/runbooks/upload", fd);
+  },
+
+  archiveRunbook: (id: number | string) =>
+    req<Runbook>(`/runbooks/${id}/archive`, { method: "POST" }),
+
+  deleteRunbook: (id: number | string) =>
+    fetch(`${BASE}/runbooks/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${auth.getToken() || ""}` },
+    }).then((r) => {
+      if (!r.ok && r.status !== 204)
+        throw new Error(`${r.status} ${r.statusText}`);
+    }),
+
+  downloadRunbookUrl: (id: number | string) =>
+    `${BASE}/runbooks/${id}/download`,
+
+  searchRunbooks: (query: string, k = 5) =>
+    req<RunbookSearchResponse>("/runbooks/search", {
+      method: "POST",
+      body: JSON.stringify({ query, k }),
+    }),
+
+  // ─────────────────────────────────────────────────────────────────
+  // NEW: Performance metrics
+  // ─────────────────────────────────────────────────────────────────
+  pipelinePerformance: (hours = 24) =>
+    req<PipelinePerformance[]>(`/metrics/pipelines?hours=${hours}`),
+
+  pipelinePerformanceDetail: (id: number | string, hours = 24) =>
+    req<PipelinePerformance>(`/metrics/pipelines/${id}?hours=${hours}`),
+
+  ragPerformance: () => req<RagPerformance>("/metrics/rag"),
+
+  llmPerformance: () => req<LlmPerformance>("/metrics/llm"),
+
+  systemMetrics: (hours = 24) =>
+    req<SystemMetrics>(`/metrics/system?hours=${hours}`),
 };
 
 export function wsUrl(): string {

@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  Gauge,                      // ← NEW icon for Metrics
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useStore } from "../hooks/useStore";
@@ -27,6 +28,7 @@ const NAV = [
   { to: "/app/incidents", icon: ShieldAlert, label: "Incident Loop" },
   { to: "/app/agents", icon: Brain, label: "Agent Mesh" },
   { to: "/app/memory", icon: History, label: "Memory" },
+  { to: "/app/metrics", icon: Gauge, label: "Metrics" },   // ← NEW
   // { to: "/app/recommendations", icon: Lightbulb, label: "Optimize" },
   { to: "/app/audit", icon: Wrench, label: "Audit Trail" },
 ];
@@ -52,7 +54,6 @@ export function Sidebar() {
         isCollapsed ? "w-20" : "w-64",
       )}
     >
-      {/* Toggle Bar */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className={cn(
@@ -103,7 +104,7 @@ export function Sidebar() {
                     </span>
                   )}
                 </>
-              )}
+               )}
               {isCollapsed &&
                 item.to === "/app/incidents" &&
                 openIncidents > 0 && (
