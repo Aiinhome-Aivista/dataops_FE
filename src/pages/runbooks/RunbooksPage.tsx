@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   BookOpen,
   Search,
@@ -52,6 +53,8 @@ export function RunbooksPage() {
   const [selectedRunbookId, setSelectedRunbookId] = useState<string | number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [runbookToDelete, setRunbookToDelete] = useState<string | number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const pollRef = useRef<number | null>(null);
 
@@ -130,14 +133,23 @@ export function RunbooksPage() {
     }
   };
 
-  const handleDelete = async (id: string | number) => {
-    if (!confirm('Permanently delete this runbook and its vector chunks?')) return;
+  const targetRb = useMemo(
+    () => runbooks.find(r => String(r.id) === String(runbookToDelete)) || null,
+    [runbooks, runbookToDelete],
+  );
+
+  const confirmDelete = async () => {
+    if (runbookToDelete == null) return;
+    setDeleting(true);
     try {
-      await api.deleteRunbook(id);
-      setRunbooks(prev => prev.filter(r => String(r.id) !== String(id)));
-      if (String(selectedRunbookId) === String(id)) setSelectedRunbookId(null);
+      await api.deleteRunbook(runbookToDelete);
+      setRunbooks(prev => prev.filter(r => String(r.id) !== String(runbookToDelete)));
+      if (String(selectedRunbookId) === String(runbookToDelete)) setSelectedRunbookId(null);
+      setRunbookToDelete(null);
     } catch (e: any) {
       setError(e?.message || 'Delete failed');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -333,7 +345,7 @@ export function RunbooksPage() {
                               view <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                             </button>
                             <button
-                              onClick={() => handleDelete(rb.id)}
+                              onClick={() => setRunbookToDelete(rb.id)}
                               className="text-[10px] font-bold uppercase tracking-widest text-rose-400 hover:text-rose-600 transition-all"
                               title="Delete runbook + vectors"
                             >
@@ -359,6 +371,66 @@ export function RunbooksPage() {
         onClose={() => setSelectedRunbookId(null)}
         onArchive={handleArchive}
       />
+
+      <AnimatePresence>
+        {runbookToDelete != null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4"
+            onClick={() => !deleting && setRunbookToDelete(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="bg-white rounded-2xl border border-[#E5E7EB] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0 mt-0.5">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#111827]">
+                    Delete Operational Runbook?
+                  </h3>
+                  <p className="text-xs text-[#6B7280] mt-1.5 leading-relaxed">
+                    You are about to permanently delete <span className="font-semibold text-gray-900">"{targetRb?.title}"</span>. This will immediately purge its indexed vector chunks from the RAG retrieval database. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setRunbookToDelete(null)}
+                  disabled={deleting}
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6B7280] hover:text-[#111827] disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  disabled={deleting}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Deleting…
+                    </>
+                  ) : (
+                    "Permanently Delete"
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
