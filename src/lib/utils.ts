@@ -7,7 +7,8 @@ export function cn(...inputs: ClassValue[]) {
 
 export function timeAgo(iso?: string | null): string {
   if (!iso) return '—';
-  const ts = new Date(iso).getTime();
+  const utcIso = iso.endsWith('Z') ? iso : `${iso}Z`;
+  const ts = new Date(utcIso).getTime();
   if (Number.isNaN(ts)) return iso;
   const diff = Math.max(0, (Date.now() - ts) / 1000);
   if (diff < 60) return `${Math.floor(diff)}s ago`;
@@ -19,11 +20,14 @@ export function timeAgo(iso?: string | null): string {
 export function formatTime(iso?: string | null): string {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleTimeString([], {
+    const utcIso = iso.endsWith('Z') ? iso : `${iso}Z`;
+    return new Date(utcIso).toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-    });
+      hour12: true,
+    }) + ' IST';
   } catch {
     return iso;
   }
@@ -32,14 +36,17 @@ export function formatTime(iso?: string | null): string {
 export function formatDateTime(iso?: string | null): string {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleString('en-GB', {
+    const utcIso = iso.endsWith('Z') ? iso : `${iso}Z`;
+    return new Date(utcIso).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
       day: '2-digit',
-      month: '2-digit',
+      month: 'short',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-    });
+      hour12: true,
+    }) + ' IST';
   } catch {
     return iso;
   }

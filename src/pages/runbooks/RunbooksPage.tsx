@@ -20,14 +20,10 @@ import { RunbookDetailPanel } from "../../components/runbooks/RunbookDetailPanel
 import { api } from "../../services/api";
 import type { Runbook } from "../../types";
 import { timeAgo, cn } from "../../lib/utils";
+import { Loading } from "../../components/Loading";
 
 type FilterTab = "ALL" | "ACTIVE" | "PROCESSING" | "FAILED" | "ARCHIVED";
 
-function timeAgoUTC(iso?: string | null): string {
-  if (!iso) return "—";
-  const utcIso = iso.endsWith("Z") ? iso : `${iso}Z`;
-  return timeAgo(utcIso);
-}
 
 /**
  * Adapts a backend Runbook payload into the shape the existing
@@ -185,8 +181,11 @@ export function RunbooksPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
-      <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-        <div className="max-w-7xl mx-auto space-y-8">
+      {loading ? (
+        <Loading message="Fetching runbooks..." />
+      ) : (
+        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+          <div className="max-w-7xl mx-auto space-y-8">
           {/* Header strip */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200/60">
             <div>
@@ -423,7 +422,7 @@ export function RunbooksPage() {
                         </td>
 
                         <td className="px-6 py-4 whitespace-nowrap text-[11px] font-medium text-[#9CA3AF]">
-                          {timeAgoUTC(
+                          {timeAgo(
                             rb.last_updated ||
                               rb.updated_at ||
                               rb.created_at ||
@@ -458,8 +457,9 @@ export function RunbooksPage() {
               </div>
             )}
           </div>
-        </div>
-      </main>
+          </div>
+        </main>
+      )}
 
       {/* Modals */}
       <CreateRunbookModal
