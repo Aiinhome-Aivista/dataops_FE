@@ -8,6 +8,7 @@ import {
   AlertCircle,
   ChevronUp,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import { PipelineStatusBadge } from "../Badges";
 import { useStore } from "../../hooks/useStore";
@@ -86,13 +87,27 @@ export function PipelineDetail({
     "desc",
   );
 
+  const [searchTerm, setSearchTerm] = useState("");
+
   const handleSort = () => {
     setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   };
 
+  const filteredRuns = useMemo(() => {
+    if (!searchTerm) return runs;
+    return runs.filter(
+      (run) =>
+        run.external_run_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        formatDateTime(run.started_at)
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        run.status.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [runs, searchTerm]);
+
   const sortedRuns = useMemo(() => {
-    if (!sortDirection) return runs;
-    return [...runs].sort((a, b) => {
+    if (!sortDirection) return filteredRuns;
+    return [...filteredRuns].sort((a, b) => {
       const dateA = new Date(a.started_at);
       const dateB = new Date(b.started_at);
       if (sortDirection === "asc") {
@@ -101,7 +116,7 @@ export function PipelineDetail({
         return dateB.getTime() - dateA.getTime();
       }
     });
-  }, [runs, sortDirection]);
+  }, [filteredRuns, sortDirection]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
@@ -152,17 +167,34 @@ export function PipelineDetail({
                   Run History
                 </h3>
               </div>
-              <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">
-                Latest {runs.length} Runs
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search
+                    size={14}
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 text-[#9CA3AF]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search by Run ID, Started, Status..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 text-xs border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-64"
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">
+                  Latest {sortedRuns.length} Runs
+                </span>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              {runs.length === 0 ? (
+              {sortedRuns.length === 0 ? (
                 <div className="py-20 text-center">
                   <Clock className="w-10 h-10 text-[#E5E7EB] mx-auto mb-3" />
                   <p className="text-xs text-[#9CA3AF] font-medium">
-                    No run history found for this pipeline.
+                    {searchTerm
+                      ? "No runs match your search."
+                      : "No run history found for this pipeline."}
                   </p>
                 </div>
               ) : (
