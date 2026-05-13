@@ -232,7 +232,7 @@ export function ConnectorModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 8 }}
             transition={{ duration: 0.18 }}
-            className="bg-white rounded-2xl border border-[#E5E7EB] w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl my-8"
+            className="bg-white rounded-2xl border border-[#E5E7EB] w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl my-2"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -357,46 +357,45 @@ function ListView({
           <span className="font-medium">Add connector</span> to get started.
         </p>
       ) : (
-
-      <div className="space-y-3">
-        {connectors.map((conn) => {
-          const dot = STATUS_DOT[conn.status.toUpperCase()] || "bg-gray-400";
-          const tr = testResults[conn.id];
-          return (
-            <div
-              key={conn.id}
-              className="flex items-center justify-between gap-3 px-4 py-4 border border-[#E5E7EB] rounded-xl bg-white shadow-sm hover:border-gray-300 transition-all"
-            >
-              <div className="flex items-center gap-4 min-w-0 flex-1">
-                <div className="w-11 h-11 rounded-lg bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-center shrink-0">
-                  <ConnectorIcon type={conn.type} size={20} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[15px] font-bold text-[#111827] tracking-tight truncate">
-                    {conn.name}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest">
-                      {conn.type}
-                    </span>
-                    {conn.last_synced_at && (
-                      <span className="text-[10px] text-[#9CA3AF] font-medium italic">
-                        • Synced {timeAgo(conn.last_synced_at)}
+        <div className="space-y-3">
+          {connectors.map((conn) => {
+            const dot = STATUS_DOT[conn.status.toUpperCase()] || "bg-gray-400";
+            const tr = testResults[conn.id];
+            return (
+              <div
+                key={conn.id}
+                className="flex items-center justify-between gap-3 px-4 py-4 border border-[#E5E7EB] rounded-xl bg-white shadow-sm hover:border-gray-300 transition-all"
+              >
+                <div className="flex items-center gap-4 min-w-0 flex-1">
+                  <div className="w-11 h-11 rounded-lg bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-center shrink-0">
+                    <ConnectorIcon type={conn.type} size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-bold text-[#111827] tracking-tight truncate">
+                      {conn.name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest">
+                        {conn.type}
                       </span>
-                    )}
+                      {conn.last_synced_at && (
+                        <span className="text-[10px] text-[#9CA3AF] font-medium italic">
+                          • Synced {timeAgo(conn.last_synced_at)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-6 shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${dot}`} />
-                  <span className="text-[11px] font-black text-[#6B7280] uppercase tracking-widest">
-                    {conn.status}
-                  </span>
-                </div>
+                <div className="flex items-center gap-6 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${dot}`} />
+                    <span className="text-[11px] font-black text-[#6B7280] uppercase tracking-widest">
+                      {conn.status}
+                    </span>
+                  </div>
 
-                {/* 
+                  {/* 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onViewPipelines(conn)}
@@ -420,13 +419,13 @@ function ListView({
                   </button>
                 </div>
                 */}
+                </div>
               </div>
-            </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
     </div>
-  )}
-</div>
   );
 }
 
@@ -444,7 +443,10 @@ function NewConnectorForm({
   const [type, setType] = useState<ConnectorTypeKey>("ADF");
   const [name, setName] = useState("");
   const [creds, setCreds] = useState<
-    CredMap["ADF"] | CredMap["DATABRICKS"] | CredMap["GIT"] | CredMap["AWS_GLUE"]
+    | CredMap["ADF"]
+    | CredMap["DATABRICKS"]
+    | CredMap["GIT"]
+    | CredMap["AWS_GLUE"]
   >(EMPTY_CREDS.ADF);
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -462,10 +464,10 @@ function NewConnectorForm({
     setBusy(true);
     onError("");
     try {
-      if (type === 'AWS_GLUE') {
+      if (type === "AWS_GLUE") {
         await api.connectAWSGlue({
           name,
-          ...(creds as unknown as CredMap['AWS_GLUE'])
+          ...(creds as unknown as CredMap["AWS_GLUE"]),
         });
       } else {
         const created = await api.upsertConnector({
@@ -550,7 +552,12 @@ function NewConnectorForm({
       {type === "GIT" && (
         <GitForm creds={creds as CredMap["GIT"]} update={updateCred} />
       )}
-      {type === 'AWS_GLUE' && <GlueForm creds={creds as unknown as CredMap['AWS_GLUE']} update={updateCred} />}
+      {type === "AWS_GLUE" && (
+        <GlueForm
+          creds={creds as unknown as CredMap["AWS_GLUE"]}
+          update={updateCred}
+        />
+      )}
 
       {/* Footer */}
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#E5E7EB]">
