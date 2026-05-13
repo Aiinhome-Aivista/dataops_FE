@@ -134,7 +134,7 @@ export function ConnectorsPage() {
               accent="text-emerald-600"
             />
             <Counter
-              label="Errored"
+              label="Error"
               value={
                 connectors.filter((c) => c.status.toUpperCase() === "ERROR")
                   .length
