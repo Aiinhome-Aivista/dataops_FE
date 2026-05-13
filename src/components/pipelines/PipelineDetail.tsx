@@ -83,8 +83,8 @@ export function PipelineDetail({
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
 
-      <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-        <div className="max-w-7xl mx-auto space-y-6">
+      <div className="flex-1 flex flex-col min-h-0 p-6">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col min-h-0 space-y-6">
           {/* Back Action */}
           <div className="flex items-center">
             <button
@@ -122,8 +122,8 @@ export function PipelineDetail({
           </div>
 
           {/* Run History Table */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#F3F4F6] flex items-center justify-between">
+          <div className="flex-1 flex flex-col min-h-0 bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#F3F4F6] flex items-center justify-between bg-white shrink-0">
               <div className="flex items-center gap-2">
                 <Activity size={16} className="text-blue-600" />
                 <h3 className="text-sm font-bold text-[#111827]">
@@ -135,7 +135,7 @@ export function PipelineDetail({
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
               {runs.length === 0 ? (
                 <div className="py-20 text-center">
                   <Clock className="w-10 h-10 text-[#E5E7EB] mx-auto mb-3" />
@@ -145,8 +145,8 @@ export function PipelineDetail({
                 </div>
               ) : (
                 <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-[#F9FAFB] text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] border-b border-[#F3F4F6]">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-[#F9FAFB] text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] shadow-[0_1px_0_#F3F4F6]">
                       <th className="px-6 py-3">Run ID</th>
                       <th className="px-6 py-3">Status</th>
                       <th className="px-6 py-3">Started</th>
