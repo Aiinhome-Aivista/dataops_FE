@@ -116,13 +116,13 @@ export function DashboardPage() {
       const s = (p.last_run_status || p.status || "").toLowerCase();
       return s === "unhealthy" || s === "degraded" || s === "failed";
     })
-    .slice(0, 5);
+    .slice(0, 3);
   const runningPipelines = state.pipelines
     .filter((p) => {
       const s = (p.last_run_status || p.status || "").toLowerCase();
       return s === "healthy" || s === "succeeded";
     })
-    .slice(0, 5);
+    .slice(0, 3);
 
   return (
     <>

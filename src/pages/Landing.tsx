@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
 import {
   Activity,
   ArrowRight,
@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Sparkles,
   Zap,
-} from 'lucide-react';
+} from "lucide-react";
 
 export function LandingPage() {
   return (
@@ -54,10 +54,11 @@ export function LandingPage() {
             <span className="text-[#6B7280]">your data pipeline failures.</span>
           </h1>
           <p className="mt-6 text-lg text-[#4B5563] leading-relaxed max-w-2xl">
-            Connect your orchestrators — Apache Airflow, Azure Data Factory, Databricks —
-            and a coordinated agent ensemble watches every run. When something breaks, it
-            reasons over your incident history, proposes a fix, asks for approval on
-            risky operations, and learns from every resolution.
+            Connect your orchestrators — Apache Airflow, Azure Data Factory,
+            Databricks — and a coordinated agent ensemble watches every run.
+            When something breaks, it reasons over your incident history,
+            proposes a fix, asks for approval on risky operations, and learns
+            from every resolution.
           </p>
           <div className="mt-8 flex items-center gap-3">
             <Link
@@ -84,8 +85,8 @@ export function LandingPage() {
             Project scope
           </h2>
           <p className="mt-2 text-2xl font-semibold tracking-tight max-w-3xl">
-            A control plane for the on-call data engineer that
-            never sleeps and never escalates the easy stuff.
+            A control plane for the on-call data engineer that never sleeps and
+            never escalates the easy stuff.
           </p>
 
           <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -157,7 +158,7 @@ export function LandingPage() {
       </section>
 
       {/* Stack */}
-      <section className="border-t border-[#E5E7EB] bg-[#F9FAFB]">
+      {/* <section className="border-t border-[#E5E7EB] bg-[#F9FAFB]">
         <div className="max-w-6xl mx-auto px-6 py-12">
           <h3 className="text-xs uppercase tracking-[0.18em] font-black text-[#9CA3AF] mb-6">
             Built on
@@ -169,7 +170,7 @@ export function LandingPage() {
             <StackItem icon={Zap} label="React + Vite + Tailwind" />
           </div>
         </div>
-      </section>
+      </section> */}
 
       <footer className="border-t border-[#E5E7EB]">
         <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between">
