@@ -133,7 +133,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-60 flex items-center justify-center p-4 overflow-y-auto custom-scrollbar"
+          className="fixed inset-0 bg-black/50 z-60 flex items-center justify-center p-4 custom-scrollbar"
           onClick={submitting ? undefined : onClose}
         >
           <motion.div
@@ -274,7 +274,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
               </div>
 
               {/* SOP Steps */}
-              <div className="space-y-3">
+              {/* <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
                     SOP Steps (optional — used when no file is uploaded)
@@ -312,7 +312,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div> */}
 
               {/* Tags */}
               <div className="space-y-1.5">
