@@ -271,7 +271,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                           description, and steps.
                         </p>
                         <p className="text-[12px] text-gray-500 mt-1">
-                          PDF, DOCX, Markdown, or TXT · 50 MB max
+                          PDF, DOCX, Markdown, or TXT · 20 MB max
                         </p>
                       </div>
                     </div>
