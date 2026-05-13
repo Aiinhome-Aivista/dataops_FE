@@ -336,3 +336,28 @@ export interface SystemMetrics {
   rag: RagPerformance;
   llm: LlmPerformance;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// LLM-suggested metadata returned by POST /runbooks/analyze
+// ─────────────────────────────────────────────────────────────────────
+export type RunbookCategory = 'ADF' | 'Databricks' | 'Git' | 'AWS Glue';
+
+export const RUNBOOK_CATEGORIES: RunbookCategory[] = [
+  'ADF',
+  'Databricks',
+  'Git',
+  'AWS Glue',
+];
+
+export interface RunbookSuggestion {
+  title: string;
+  category: RunbookCategory | string;
+  description: string;
+  steps: string[];
+  risk_level: 'Low' | 'Medium' | 'High';
+  tags: string[];
+  llm_used: boolean;
+  model?: string | null;
+  latency_ms?: number | null;
+  extracted_chars?: number;
+}

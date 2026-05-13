@@ -13,6 +13,7 @@ import type {
   Recommendation,
   Runbook,
   RunbookSearchResponse,
+  RunbookSuggestion,
   PipelinePerformance,
   RagPerformance,
   LlmPerformance,
@@ -272,6 +273,17 @@ export const api = {
     req<Runbook[]>(`/runbooks${includeArchived ? "?include_archived=true" : ""}`),
 
   runbook: (id: number | string) => req<Runbook>(`/runbooks/${id}`),
+
+  /**
+   * PHASE 1 of the runbook ingestion flow.
+   * Sends the file to the backend, which extracts text and asks Mistral to
+   * suggest title/category/description/steps/tags. Nothing is persisted.
+   */
+  analyzeRunbook: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return uploadForm<RunbookSuggestion>("/runbooks/analyze", fd);
+  },
 
   uploadRunbook: (params: {
     file: File;

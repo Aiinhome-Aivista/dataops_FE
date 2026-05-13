@@ -1,46 +1,153 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, FileText, Upload, Check, Loader2, AlertCircle } from "lucide-react";
+import {
+  X,
+  Plus,
+  FileText,
+  Upload,
+  Trash2,
+  Check,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+  Wand2,
+  ArrowLeft,
+} from "lucide-react";
 import { api } from "../../services/api";
-import type { Runbook } from "../../types";
+import type { Runbook, RunbookCategory, RunbookSuggestion } from "../../types";
+import { RUNBOOK_CATEGORIES } from "../../types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  /**
-   * Called after a successful upload (or local-only save).
-   * Receives the freshly-created Runbook from the backend so the parent
-   * page can prepend it to its list immediately.
-   */
   onSaved: (runbook: Runbook) => void;
 }
 
+type Phase = "pick" | "analyzing" | "review";
+
+/**
+ * Two-phase wizard:
+ *   pick      → user picks a file
+ *   analyzing → backend extracts text and asks Mistral for metadata
+ *   review    → form is pre-filled, user can edit, then clicks "Upload & Index"
+ *
+ * Categories are constrained to ADF / Databricks / Git / AWS Glue.
+ */
 export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
-  const [file, setFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [phase, setPhase] = useState<Phase>("pick");
   const [error, setError] = useState<string | null>(null);
 
+  // File & analysis state
+  const [file, setFile] = useState<File | null>(null);
+  const [suggestion, setSuggestion] = useState<RunbookSuggestion | null>(null);
+
+  // Editable fields (pre-filled from suggestion)
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState<RunbookCategory>("ADF");
+  const [description, setDescription] = useState("");
+  const [steps, setSteps] = useState<string[]>([""]);
+  const [riskLevel, setRiskLevel] = useState<"Low" | "Medium" | "High">(
+    "Medium",
+  );
+  const [tagsInput, setTagsInput] = useState("");
+  const [ragEnabled, setRagEnabled] = useState(true);
+
+  const [submitting, setSubmitting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const reset = () => {
-    setFile(null);
+    setPhase("pick");
     setError(null);
+    setFile(null);
+    setSuggestion(null);
+    setTitle("");
+    setCategory("ADF");
+    setDescription("");
+    setSteps([""]);
+    setRiskLevel("Medium");
+    setTagsInput("");
+    setRagEnabled(true);
     setSubmitting(false);
   };
 
+  const handleClose = () => {
+    if (submitting || phase === "analyzing") return;
+    reset();
+    onClose();
+  };
+
+  // ───────────────────────────────────────────────────────────────────
+  // Phase 1 → Phase 2: send file to LLM and populate the form
+  // ───────────────────────────────────────────────────────────────────
+  const handleFilePicked = async (f: File) => {
+    setFile(f);
+    setError(null);
+    setPhase("analyzing");
+    try {
+      const s = await api.analyzeRunbook(f);
+      setSuggestion(s);
+
+      // Pre-fill editable form fields from LLM output
+      setTitle(s.title);
+      setCategory(
+        (RUNBOOK_CATEGORIES.includes(s.category as RunbookCategory)
+          ? s.category
+          : "ADF") as RunbookCategory,
+      );
+      setDescription(s.description);
+      setSteps(s.steps.length ? s.steps : [""]);
+      setRiskLevel(s.risk_level);
+      setTagsInput(s.tags.join(", "));
+      setPhase("review");
+    } catch (err: any) {
+      setError(err?.message || "Failed to analyze the file");
+      setPhase("pick");
+      setFile(null);
+    }
+  };
+
+  // ───────────────────────────────────────────────────────────────────
+  // Phase 2: commit → backend stores & ingests
+  // ───────────────────────────────────────────────────────────────────
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!file) {
-      setError("Please upload a file.");
+      setError("No file selected");
       return;
     }
-    await doUpload(file);
-  };
-
-  const doUpload = async (f: File) => {
+    if (!title.trim()) {
+      setError("Title is required");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
+      const tags = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const stepsBody = steps
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s, i) => `${i + 1}. ${s}`)
+        .join("\n");
+
+      // We pack the user-edited steps into the description (separated by a
+      // marker) so the backend stores them as part of the runbook text. The
+      // file itself is still the canonical source for vector indexing.
+      const descriptionWithSteps = stepsBody
+        ? `${description.trim()}\n\nSteps:\n${stepsBody}`
+        : description.trim();
+
       const created = await api.uploadRunbook({
-        file: f,
+        file,
+        title: title.trim(),
+        category,
+        description: descriptionWithSteps,
+        risk_level: riskLevel,
+        tags,
+        rag_enabled: ragEnabled,
       });
 
       onSaved(created);
@@ -53,6 +160,23 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
     }
   };
 
+  // ───────────────────────────────────────────────────────────────────
+  // Step helpers (used in review phase)
+  // ───────────────────────────────────────────────────────────────────
+  const addStep = () => setSteps([...steps, ""]);
+  const updateStep = (i: number, v: string) => {
+    const n = [...steps];
+    n[i] = v;
+    setSteps(n);
+  };
+  const removeStep = (i: number) => {
+    if (steps.length <= 1) return setSteps([""]);
+    setSteps(steps.filter((_, idx) => idx !== i));
+  };
+
+  // ───────────────────────────────────────────────────────────────────
+  // Render
+  // ───────────────────────────────────────────────────────────────────
   return (
     <AnimatePresence>
       {open && (
@@ -60,8 +184,8 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-60 flex items-center justify-center p-4 custom-scrollbar"
-          onClick={submitting ? undefined : onClose}
+          className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 custom-scrollbar"
+          onClick={handleClose}
         >
           <motion.div
             initial={{ scale: 0.95, opacity: 0, y: 10 }}
@@ -75,32 +199,40 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
             <div className="p-6 border-b border-[#E5E7EB] flex items-center justify-between bg-[#F9FAFB] shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#111827] flex items-center justify-center text-white shadow-md">
-                  <FileText className="w-5 h-5 text-sky-400" />
+                  {phase === "review" ? (
+                    <Wand2 className="w-5 h-5 text-sky-400" />
+                  ) : (
+                    <FileText className="w-5 h-5 text-sky-400" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[#111827]">
-                    Upload Operational Runbook
+                    {phase === "pick" && "Upload Operational Runbook"}
+                    {phase === "analyzing" && "Analyzing document…"}
+                    {phase === "review" && "Review AI Suggestions"}
                   </h3>
                   <p className="text-xs text-[#6B7280]">
-                    File is stored locally and indexed into the RAG vector store
+                    {phase === "pick" &&
+                      "Drop a file and Mistral will suggest the catalogue metadata"}
+                    {phase === "analyzing" &&
+                      "Extracting text and asking Mistral to summarise…"}
+                    {phase === "review" &&
+                      "You can edit anything before it is indexed into the RAG store"}
                   </p>
                 </div>
               </div>
               <button
-                onClick={onClose}
-                disabled={submitting}
+                onClick={handleClose}
+                disabled={submitting || phase === "analyzing"}
                 className="text-[#9CA3AF] hover:text-[#111827] transition-colors p-1.5 rounded-lg hover:bg-gray-200/50 disabled:opacity-40"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Body */}
-            <form
-              onSubmit={handleSubmit}
-              className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar"
-            >
-              {/* Error banner */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
               {error && (
                 <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs px-3 py-2 rounded-lg flex items-start gap-2">
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -108,72 +240,234 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                 </div>
               )}
 
-              {/* Upload */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-                  Source File (PDF / DOCX / TXT)
-                </label>
-                <div className="border-2 border-dashed border-[#E5E7EB] rounded-xl p-5 text-center bg-[#F9FAFB] hover:bg-gray-50/50 transition-colors relative">
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    title="Upload file"
-                    disabled={submitting}
-                  />
-                  <div className="flex flex-col items-center gap-2 pointer-events-none">
-                    <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
-                      <Upload className="w-4 h-4 text-gray-400" />
-                    </div>
-                    {file ? (
-                      <div>
-                        <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1 justify-center">
-                          <Check className="w-3.5 h-3.5" /> {file.name}
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          {(file.size / 1024).toFixed(1)} KB · click to replace
-                        </p>
+              {/* ─── PHASE 1: PICK FILE ─────────────────────────────── */}
+              {phase === "pick" && (
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
+                    Source File (PDF / DOCX / MD / TXT)
+                  </label>
+                  <div className="border-2 border-dashed border-[#E5E7EB] rounded-xl p-10 text-center bg-[#F9FAFB] hover:bg-gray-50/50 transition-colors relative">
+                    <input
+                      ref={inputRef}
+                      type="file"
+                      accept=".pdf,.docx,.md,.txt"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFilePicked(f);
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      title="Upload file"
+                    />
+                    <div className="flex flex-col items-center gap-3 pointer-events-none">
+                      <div className="w-14 h-14 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+                        <Upload className="w-6 h-6 text-gray-400" />
                       </div>
-                    ) : (
                       <div>
-                        <p className="text-xs font-medium text-gray-700">
-                          Drag & drop a runbook here, or click to browse
+                        <p className="text-sm font-semibold text-gray-700">
+                          Drag &amp; drop a runbook here, or click to browse
+                        </p>
+                        <p className="text-[11px] text-gray-400 mt-1">
+                          Mistral will read the file and suggest the title,
+                          description, and steps.
                         </p>
                         <p className="text-[10px] text-gray-400 mt-1">
-                          PDF, DOCX, TXT · 25 MB max
+                          PDF, DOCX, Markdown, or TXT · 50 MB max
                         </p>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </form>
+              )}
+
+              {/* ─── PHASE 1.5: ANALYZING ─────────────────────────── */}
+              {phase === "analyzing" && (
+                <div className="py-16 flex flex-col items-center text-center gap-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-full border-4 border-gray-100" />
+                    <div className="w-16 h-16 rounded-full border-4 border-transparent border-t-[#111827] animate-spin absolute inset-0" />
+                    <Wand2 className="w-6 h-6 text-sky-500 absolute inset-0 m-auto" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#111827]">
+                      Reading <span className="font-mono">{file?.name}</span>
+                    </p>
+                    <p className="text-xs text-[#6B7280] mt-1">
+                      Extracting text · asking Mistral for a title, category,
+                      and steps…
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── PHASE 2: REVIEW & EDIT ───────────────────────── */}
+              {phase === "review" && (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {suggestion && (
+                    <div className="bg-sky-50/50 border border-sky-100 text-sky-900 text-[11px] px-3 py-2 rounded-lg flex items-start gap-2">
+                      <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-sky-500" />
+                      <span>
+                        Mistral suggested the fields below from{" "}
+                        <span className="font-mono">{file?.name}</span>
+                        {suggestion.extracted_chars
+                          ? ` (${suggestion.extracted_chars.toLocaleString()} chars extracted)`
+                          : ""}
+                        . Edit anything that looks off, then commit.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Title + Category */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2 space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
+                        Title
+                      </label>
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-gray-500 bg-[#F9FAFB] focus:bg-white"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
+                        Category
+                      </label>
+                      <select
+                        value={category}
+                        onChange={(e) =>
+                          setCategory(e.target.value as RunbookCategory)
+                        }
+                        className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-gray-500 bg-[#F9FAFB] focus:bg-white cursor-pointer"
+                      >
+                        {RUNBOOK_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
+                      Description
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-gray-500 bg-[#F9FAFB] focus:bg-white resize-none"
+                    />
+                  </div>
+
+                  {/* Steps */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
+                        Steps (extracted by AI — edit as needed)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addStep}
+                        className="text-[10px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add step
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {steps.map((step, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <span className="w-6 h-8 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0 select-none pt-1">
+                            {idx + 1}.
+                          </span>
+                          <input
+                            type="text"
+                            placeholder={`Step ${idx + 1}…`}
+                            value={step}
+                            onChange={(e) => updateStep(idx, e.target.value)}
+                            className="flex-1 px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none focus:border-gray-500 bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeStep(idx)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 mt-0.5"
+                            title="Delete step"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
+                      Tags (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="oom, executor, shuffle-skew"
+                      value={tagsInput}
+                      onChange={(e) => setTagsInput(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-gray-500 bg-[#F9FAFB] focus:bg-white"
+                    />
+                  </div>
+                </form>
+              )}
+            </div>
 
             {/* Footer */}
-            <div className="p-4 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={submitting}
-                className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6B7280] hover:text-[#111827] disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSubmit()}
-                disabled={submitting}
-                className="px-5 py-2 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…
-                  </>
-                ) : (
-                  "Upload"
+            <div className="p-4 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between gap-3 shrink-0">
+              {phase === "review" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhase("pick");
+                    setFile(null);
+                    setSuggestion(null);
+                    if (inputRef.current) inputRef.current.value = "";
+                  }}
+                  disabled={submitting}
+                  className="text-[#6B7280] hover:text-[#111827] text-xs font-bold uppercase tracking-wider flex items-center gap-1 disabled:opacity-40"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Pick a different file
+                </button>
+              ) : (
+                <div /> // spacer
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={submitting || phase === "analyzing"}
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6B7280] hover:text-[#111827] disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                {phase === "review" && (
+                  <button
+                    type="button"
+                    onClick={() => handleSubmit()}
+                    disabled={submitting}
+                    className="px-5 py-2 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                        Uploading…
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" /> Upload &amp; Index
+                      </>
+                    )}
+                  </button>
                 )}
-              </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
