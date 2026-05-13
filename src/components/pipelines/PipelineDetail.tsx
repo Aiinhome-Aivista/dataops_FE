@@ -175,7 +175,7 @@ export function PipelineDetail({
                   />
                   <input
                     type="text"
-                    placeholder="Search by Run ID, Started, Status..."
+                    placeholder="Search by Run ID, Status, Started..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8 pr-3 py-1.5 text-xs border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-64"
