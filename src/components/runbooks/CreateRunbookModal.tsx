@@ -1,16 +1,6 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  X,
-  Plus,
-  FileText,
-  Upload,
-  Trash2,
-  Check,
-  Sparkles,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
+import { X, FileText, Upload, Check, Loader2, AlertCircle } from "lucide-react";
 import { api } from "../../services/api";
 import type { Runbook } from "../../types";
 
@@ -26,72 +16,20 @@ interface Props {
 }
 
 export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
-  const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Airflow");
-  const [description, setDescription] = useState("");
-  const [steps, setSteps] = useState<string[]>(["", ""]);
-  const [riskLevel, setRiskLevel] = useState<"Low" | "Medium" | "High">(
-    "Medium",
-  );
-  const [ragEnabled, setRagEnabled] = useState(true);
   const [file, setFile] = useState<File | null>(null);
-  const [tagsInput, setTagsInput] = useState("");
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleAddStep = () => setSteps([...steps, ""]);
-  const handleStepChange = (idx: number, val: string) => {
-    const next = [...steps];
-    next[idx] = val;
-    setSteps(next);
-  };
-  const handleRemoveStep = (idx: number) => {
-    if (steps.length <= 1) return;
-    setSteps(steps.filter((_, i) => i !== idx));
-  };
-
   const reset = () => {
-    setTitle("");
-    setCategory("Airflow");
-    setDescription("");
-    setSteps(["", ""]);
-    setRiskLevel("Medium");
-    setRagEnabled(true);
     setFile(null);
-    setTagsInput("");
     setError(null);
     setSubmitting(false);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!title.trim() && !file) {
-      setError("Please provide a title or upload a file.");
-      return;
-    }
     if (!file) {
-      // Backend requires a file (otherwise nothing to ingest into Chroma).
-      // We synthesize a Markdown file from the user-typed steps so the
-      // flow still works even when nothing is uploaded.
-      const md =
-        `# ${title.trim() || "Untitled runbook"}\n\n` +
-        `**Category:** ${category}  \n` +
-        `**Risk:** ${riskLevel}\n\n` +
-        `## Description\n${description.trim() || "(none)"}\n\n` +
-        `## Steps\n` +
-        steps
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((s, i) => `${i + 1}. ${s}`)
-          .join("\n");
-      const blob = new Blob([md], { type: "text/markdown" });
-      const synthetic = new File(
-        [blob],
-        `${(title.trim() || "runbook").replace(/\s+/g, "_").toLowerCase()}.md`,
-        { type: "text/markdown" },
-      );
-      await doUpload(synthetic);
+      setError("Please upload a file.");
       return;
     }
     await doUpload(file);
@@ -101,19 +39,8 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      const tags = tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
       const created = await api.uploadRunbook({
         file: f,
-        title: title.trim() || undefined,
-        category,
-        description: description.trim(),
-        risk_level: riskLevel,
-        tags,
-        rag_enabled: ragEnabled,
       });
 
       onSaved(created);
@@ -181,62 +108,15 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                 </div>
               )}
 
-              {/* Title + Category */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 space-y-1.5">
-                  <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-                    Runbook Title
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Spark OOM triage guide"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-gray-500 bg-[#F9FAFB] focus:bg-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-                    Category
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-gray-500 bg-[#F9FAFB] focus:bg-white cursor-pointer"
-                  >
-                    <option value="Azure Data Factory">
-                      Azure Data Factory
-                    </option>
-                    <option value="Databricks">Databricks</option>
-                    <option value="GitHub Actions">GitHub Actions</option>
-                    <option value="AWS Glue">AWS Glue</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="When does this runbook apply? Which symptoms does it remediate?"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-gray-500 bg-[#F9FAFB] focus:bg-white resize-none"
-                />
-              </div>
-
               {/* Upload */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-                  Source File (PDF / DOCX / MD / TXT)
+                  Source File (PDF / DOCX / TXT)
                 </label>
                 <div className="border-2 border-dashed border-[#E5E7EB] rounded-xl p-5 text-center bg-[#F9FAFB] hover:bg-gray-50/50 transition-colors relative">
                   <input
                     type="file"
-                    accept=".pdf,.docx,.md,.txt"
+                    accept=".pdf,.docx,.txt"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     title="Upload file"
@@ -261,125 +141,11 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                           Drag & drop a runbook here, or click to browse
                         </p>
                         <p className="text-[10px] text-gray-400 mt-1">
-                          PDF, DOCX, Markdown, or TXT · 25 MB max
+                          PDF, DOCX, TXT · 25 MB max
                         </p>
                       </div>
                     )}
                   </div>
-                </div>
-                <p className="text-[10px] text-gray-400">
-                  No file? We'll convert your title + steps into a Markdown file
-                  and ingest that instead.
-                </p>
-              </div>
-
-              {/* SOP Steps */}
-              {/* <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-                    SOP Steps (optional — used when no file is uploaded)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddStep}
-                    className="text-[10px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Add step
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {steps.map((step, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <span className="w-6 h-8 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0 select-none pt-1">
-                        {idx + 1}.
-                      </span>
-                      <input
-                        type="text"
-                        placeholder={`Step ${idx + 1} action…`}
-                        value={step}
-                        onChange={(e) => handleStepChange(idx, e.target.value)}
-                        className="flex-1 px-3 py-1.5 border border-[#E5E7EB] rounded-lg text-xs focus:outline-none focus:border-gray-500 bg-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveStep(idx)}
-                        disabled={steps.length <= 1}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 disabled:opacity-30 mt-0.5"
-                        title="Delete step"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div> */}
-
-              {/* Tags */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-                  Tags (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  placeholder="oom, executor, shuffle-skew"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-gray-500 bg-[#F9FAFB] focus:bg-white"
-                />
-              </div>
-
-              {/* Risk + RAG toggle */}
-              <div className="border-t border-[#E5E7EB] pt-5 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#111827] uppercase tracking-wider block">
-                    Risk Level
-                  </label>
-                  <div className="flex gap-3">
-                    {(["Low", "Medium", "High"] as const).map((tier) => (
-                      <label
-                        key={tier}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 border rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                          riskLevel === tier
-                            ? tier === "Low"
-                              ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                              : tier === "Medium"
-                                ? "bg-amber-50 border-amber-500 text-amber-700 shadow-sm"
-                                : "bg-rose-50 border-rose-500 text-rose-700 shadow-sm"
-                            : "bg-white border-gray-200 text-gray-400 hover:border-gray-300"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="riskLevel"
-                          value={tier}
-                          checked={riskLevel === tier}
-                          onChange={() => setRiskLevel(tier)}
-                          className="sr-only"
-                        />
-                        {tier}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-linear-to-r from-blue-50/50 to-indigo-50/50 border border-blue-100/60 p-3 rounded-xl flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    id="ragToggle"
-                    checked={ragEnabled}
-                    onChange={(e) => setRagEnabled(e.target.checked)}
-                    className="mt-1 rounded text-blue-600 focus:ring-blue-500 border-gray-300 w-4 h-4 cursor-pointer"
-                  />
-                  <label
-                    htmlFor="ragToggle"
-                    className="text-xs text-gray-700 leading-tight cursor-pointer select-none"
-                  >
-                    <span className="font-bold text-[#111827] flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-sky-500 fill-sky-500" />{" "}
-                      Index for RAG retrieval
-                    </span>
-                    Mistral will retrieve this runbook during incident diagnosis
-                  </label>
                 </div>
               </div>
             </form>
@@ -405,7 +171,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…
                   </>
                 ) : (
-                  "Upload & Index"
+                  "Upload"
                 )}
               </button>
             </div>

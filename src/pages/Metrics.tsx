@@ -15,6 +15,7 @@ import { StatCard } from "../components/StatCard";
 import { api } from "../services/api";
 import type { SystemMetrics, PipelinePerformance } from "../types";
 import { cn } from "../lib/utils";
+import { Loading } from "../components/Loading";
 
 const WINDOW_OPTIONS: { label: string; hours: number }[] = [
   { label: "1h", hours: 1 },
@@ -60,126 +61,6 @@ export function MetricsPage() {
       ]);
       setData(sys);
       setPipelineRows(rows);
-
-      // Simulate network request loading state smoothly
-      // await new Promise((res) => setTimeout(res, 400));
-
-      // const dummySys: SystemMetrics = {
-      //   window_hours: hours,
-      //   pipelines: {
-      //     count: 14,
-      //     runs_total:
-      //       hours === 1 ? 84 : hours === 6 ? 412 : hours === 24 ? 1240 : 8420,
-      //     runs_succeeded:
-      //       hours === 1 ? 82 : hours === 6 ? 398 : hours === 24 ? 1198 : 8110,
-      //     runs_failed:
-      //       hours === 1 ? 2 : hours === 6 ? 14 : hours === 24 ? 42 : 310,
-      //     success_rate_pct: 96.6,
-      //     top_5_busiest: [],
-      //   },
-      //   rag: {
-      //     collections: { incidents: 380, runbooks: 142 },
-      //     summary: {
-      //       incidents: {
-      //         query_count: hours === 1 ? 45 : hours === 24 ? 850 : 3400,
-      //         avg_latency_ms: 185,
-      //         p95_latency_ms: 310,
-      //         hit_rate: 0.92,
-      //         avg_top_similarity: 0.88,
-      //       },
-      //       runbooks: {
-      //         query_count: hours === 1 ? 18 : hours === 24 ? 420 : 1850,
-      //         avg_latency_ms: 140,
-      //         p95_latency_ms: 260,
-      //         hit_rate: 0.95,
-      //         avg_top_similarity: 0.91,
-      //       },
-      //     },
-      //   },
-      //   llm: {
-      //     call_count: hours === 1 ? 52 : hours === 24 ? 940 : 4120,
-      //     success_rate: 0.99,
-      //     avg_latency_ms: 820,
-      //     p95_latency_ms: 1450,
-      //     avg_prompt_chars: 3840,
-      //   },
-      // };
-
-      // const dummyRows: PipelinePerformance[] = [
-      //   {
-      //     pipeline_id: 1,
-      //     pipeline_name: "Customer Data Sync (Salesforce → Snowflake)",
-      //     runs: hours === 1 ? 25 : hours === 24 ? 340 : 1240,
-      //     succeeded: hours === 1 ? 25 : hours === 24 ? 335 : 1220,
-      //     failed: hours === 1 ? 0 : hours === 24 ? 5 : 20,
-      //     success_rate_pct: 98.5,
-      //     avg_duration_sec: 14.2,
-      //     min_duration_sec: 8.1,
-      //     max_duration_sec: 45.0,
-      //     p50_duration_sec: 12.0,
-      //     p95_duration_sec: 28.4,
-      //     p99_duration_sec: 41.2,
-      //   },
-      //   {
-      //     pipeline_id: 2,
-      //     pipeline_name: "Real-time Clickstream ETL (Kafka/Spark)",
-      //     runs: hours === 1 ? 20 : hours === 24 ? 280 : 980,
-      //     succeeded: hours === 1 ? 19 : hours === 24 ? 271 : 940,
-      //     failed: hours === 1 ? 1 : hours === 24 ? 9 : 40,
-      //     success_rate_pct: 96.7,
-      //     avg_duration_sec: 4.8,
-      //     min_duration_sec: 2.1,
-      //     max_duration_sec: 18.5,
-      //     p50_duration_sec: 4.1,
-      //     p95_duration_sec: 11.0,
-      //     p99_duration_sec: 16.2,
-      //   },
-      //   {
-      //     pipeline_id: 3,
-      //     pipeline_name: "Daily ERP Billing Reconciliation",
-      //     runs: hours === 1 ? 12 : hours === 24 ? 190 : 710,
-      //     succeeded: hours === 1 ? 12 : hours === 24 ? 188 : 700,
-      //     failed: hours === 1 ? 0 : hours === 24 ? 2 : 10,
-      //     success_rate_pct: 98.9,
-      //     avg_duration_sec: 125.4,
-      //     min_duration_sec: 90.0,
-      //     max_duration_sec: 310.0,
-      //     p50_duration_sec: 118.0,
-      //     p95_duration_sec: 240.0,
-      //     p99_duration_sec: 295.0,
-      //   },
-      //   {
-      //     pipeline_id: 4,
-      //     pipeline_name: "Logistics Router Geo-enrichment",
-      //     runs: hours === 1 ? 10 : hours === 24 ? 150 : 620,
-      //     succeeded: hours === 1 ? 9 : hours === 24 ? 135 : 560,
-      //     failed: hours === 1 ? 1 : hours === 24 ? 15 : 60,
-      //     success_rate_pct: 90.0,
-      //     avg_duration_sec: 8.4,
-      //     min_duration_sec: 3.2,
-      //     max_duration_sec: 88.0,
-      //     p50_duration_sec: 6.5,
-      //     p95_duration_sec: 42.0,
-      //     p99_duration_sec: 78.0,
-      //   },
-      //   {
-      //     pipeline_id: 5,
-      //     pipeline_name: "Telemetry Indexer Ingestion Flow",
-      //     runs: hours === 1 ? 8 : hours === 24 ? 120 : 450,
-      //     succeeded: hours === 1 ? 8 : hours === 24 ? 120 : 450,
-      //     failed: 0,
-      //     success_rate_pct: 100.0,
-      //     avg_duration_sec: 1.2,
-      //     min_duration_sec: 0.5,
-      //     max_duration_sec: 3.1,
-      //     p50_duration_sec: 1.0,
-      //     p95_duration_sec: 2.4,
-      //     p99_duration_sec: 2.9,
-      //   },
-      // ];
-
-      // setData(dummySys);
-      // setPipelineRows(dummyRows);
     } catch (e: any) {
       setError(e?.message || "Failed to load metrics");
     } finally {
@@ -207,7 +88,10 @@ export function MetricsPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
-      <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+      {loading && !data ? (
+        <Loading message="Fetching performance metrics..." />
+      ) : (
+        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Header strip */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200/60">
@@ -470,6 +354,7 @@ export function MetricsPage() {
           </div>
         </div>
       </main>
+      )}
     </div>
   );
 }
