@@ -2,12 +2,12 @@ import { useMemo, useState } from "react";
 import {
   Activity,
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
   Clock,
   RefreshCw,
   Sparkles,
   AlertCircle,
-  ChevronUp,
-  ChevronDown,
   Search,
 } from "lucide-react";
 import { PipelineStatusBadge } from "../Badges";
@@ -204,12 +204,28 @@ export function PipelineDetail({
                       <th className="px-6 py-3">Run ID</th>
                       <th className="px-6 py-3">Status</th>
                       <th
-                        className="px-6 py-3 cursor-pointer select-none flex items-center gap-1"
+                        className="px-6 py-3 cursor-pointer select-none"
                         onClick={handleSort}
                       >
-                        Started
-                        {sortDirection === "asc" && <ChevronUp size={12} />}
-                        {sortDirection === "desc" && <ChevronDown size={12} />}
+                        <div className="flex items-center gap-2">
+                          <span>Started</span>
+                          <span className="flex items-center gap-0">
+                            <ArrowUp
+                              size={12}
+                              className={cn(
+                                "transition-colors",
+                                "text-blue-600",
+                              )}
+                            />
+                            <ArrowDown
+                              size={12}
+                              className={cn(
+                                "transition-colors",
+                                "text-blue-600",
+                              )}
+                            />
+                          </span>
+                        </div>
                       </th>
                       <th className="px-6 py-3">Duration</th>
                       <th className="px-6 py-3">Analysis</th>
