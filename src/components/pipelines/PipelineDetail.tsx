@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -6,6 +6,8 @@ import {
   RefreshCw,
   Sparkles,
   AlertCircle,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { PipelineStatusBadge } from "../Badges";
 import { useStore } from "../../hooks/useStore";
@@ -80,9 +82,29 @@ export function PipelineDetail({
     return durations.reduce((a, b) => a + b, 0) / durations.length;
   }, [runs]);
 
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
+    "desc",
+  );
+
+  const handleSort = () => {
+    setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+  };
+
+  const sortedRuns = useMemo(() => {
+    if (!sortDirection) return runs;
+    return [...runs].sort((a, b) => {
+      const dateA = new Date(a.started_at);
+      const dateB = new Date(b.started_at);
+      if (sortDirection === "asc") {
+        return dateA.getTime() - dateB.getTime();
+      } else {
+        return dateB.getTime() - dateA.getTime();
+      }
+    });
+  }, [runs, sortDirection]);
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
-
       <div className="flex-1 flex flex-col min-h-0 p-6">
         <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col min-h-0 space-y-6">
           {/* Back Action */}
@@ -149,14 +171,21 @@ export function PipelineDetail({
                     <tr className="bg-[#F9FAFB] text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] shadow-[0_1px_0_#F3F4F6]">
                       <th className="px-6 py-3">Run ID</th>
                       <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3">Started</th>
+                      <th
+                        className="px-6 py-3 cursor-pointer select-none flex items-center gap-1"
+                        onClick={handleSort}
+                      >
+                        Started
+                        {sortDirection === "asc" && <ChevronUp size={12} />}
+                        {sortDirection === "desc" && <ChevronDown size={12} />}
+                      </th>
                       <th className="px-6 py-3">Duration</th>
                       <th className="px-6 py-3">Analysis</th>
                       <th className="px-6 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F3F4F6]">
-                    {runs.map((run) => (
+                    {sortedRuns.map((run) => (
                       <tr
                         key={run.id}
                         className="hover:bg-[#F9FAFB] transition-colors group"
@@ -214,7 +243,6 @@ export function PipelineDetail({
               )}
             </div>
           </div>
-
         </div>
       </div>
     </div>
