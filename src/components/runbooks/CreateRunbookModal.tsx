@@ -302,7 +302,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
               {/* ─── PHASE 2: REVIEW & EDIT ───────────────────────── */}
               {phase === "review" && (
                 <form onSubmit={handleSubmit} className="space-y-5">
-                  {suggestion && (
+                  {/* {suggestion && (
                     <div className="bg-sky-50/50 border border-sky-100 text-sky-900 text-[11px] px-3 py-2 rounded-lg flex items-start gap-2">
                       <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-sky-500" />
                       <span>
@@ -314,7 +314,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                         . Edit anything that looks off, then commit.
                       </span>
                     </div>
-                  )}
+                  )} */}
 
                   {/* Title + Category */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
