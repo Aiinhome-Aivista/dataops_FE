@@ -184,7 +184,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 custom-scrollbar"
+          className="fixed inset-0 bg-black/50 z-60 flex items-center justify-center p-4 custom-scrollbar"
           onClick={handleClose}
         >
           <motion.div
@@ -270,7 +270,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                           Mistral will read the file and suggest the title,
                           description, and steps.
                         </p>
-                        <p className="text-[10px] text-gray-400 mt-1">
+                        <p className="text-[12px] text-gray-500 mt-1">
                           PDF, DOCX, Markdown, or TXT · 50 MB max
                         </p>
                       </div>

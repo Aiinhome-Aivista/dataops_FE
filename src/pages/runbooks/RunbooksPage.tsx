@@ -102,7 +102,7 @@ export function RunbooksPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return runbooks.filter(r => {
+    const result = runbooks.filter(r => {
       const matchesSearch =
         !q ||
         r.title.toLowerCase().includes(q) ||
@@ -113,6 +113,12 @@ export function RunbooksPage() {
       if (filter === 'ALL') return r.status !== 'ARCHIVED';
       return r.status === filter;
     });
+
+    if (filter === 'ALL') {
+      const order: Record<string, number> = { PROCESSING: 1, ACTIVE: 2, FAILED: 3 };
+      return [...result].sort((a, b) => (order[a.status] || 99) - (order[b.status] || 99));
+    }
+    return result;
   }, [runbooks, search, filter]);
 
   const selectedRunbook = useMemo(
