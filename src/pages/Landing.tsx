@@ -54,7 +54,7 @@ export function LandingPage() {
             <span className="text-[#6B7280]">your data pipeline failures.</span>
           </h1>
           <p className="mt-6 text-lg text-[#4B5563] leading-relaxed max-w-2xl">
-            Connect your orchestrators — Apache Airflow, Azure Data Factory,
+            Connect your orchestrators — Azure Data Factory, AWS Glue, GIT,
             Databricks — and a coordinated agent ensemble watches every run.
             When something breaks, it reasons over your incident history,
             proposes a fix, asks for approval on risky operations, and learns
@@ -93,7 +93,7 @@ export function LandingPage() {
             <FeatureCard
               icon={Eye}
               title="Detect"
-              body="Continuously monitors Airflow DAGs, ADF pipelines, and Databricks jobs. Newly failed runs are picked up within seconds and turned into structured incidents."
+              body="Continuously monitors ADF pipelines, and Databricks jobs. Newly failed runs are picked up within seconds and turned into structured incidents."
             />
             <FeatureCard
               icon={Brain}
@@ -103,7 +103,7 @@ export function LandingPage() {
             <FeatureCard
               icon={RefreshCw}
               title="Remediate"
-              body="The Remediation Agent invokes real connector tools — clear an Airflow task, rerun an ADF pipeline, repair a Databricks run — behind a circuit breaker, with a human approval gate on destructive operations."
+              body="The Remediation Agent invokes real connector tools — rerun an ADF pipeline, repair a Databricks run — behind a circuit breaker, with a human approval gate on destructive operations."
             />
             <FeatureCard
               icon={GitBranch}
@@ -127,7 +127,7 @@ export function LandingPage() {
           <Step
             n="1"
             title="Connect your orchestrator"
-            body="Add Airflow, ADF, or Databricks via the UI. Credentials are encrypted at rest. The moment you save, the system fetches every pipeline on the account and starts watching for failures."
+            body="Add ADF, or Databricks via the UI. Credentials are encrypted at rest. The moment you save, the system fetches every pipeline on the account and starts watching for failures."
           />
           <Step
             n="2"
@@ -147,7 +147,7 @@ export function LandingPage() {
           <Step
             n="5"
             title="Tools execute against real systems"
-            body="Each tool wraps a real connector call: rerun_adf_pipeline, repair_databricks_run, clear_airflow_task, restart_k8s_deployment, open_jira_ticket, notify_slack — behind per-tool circuit breakers and timeouts."
+            body="Each tool wraps a real connector call: rerun_adf_pipeline, repair_databricks_run, restart_k8s_deployment, open_jira_ticket, notify_slack — behind per-tool circuit breakers and timeouts."
           />
           <Step
             n="6"
