@@ -1,25 +1,25 @@
-import { type ReactNode } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { StoreProvider } from './hooks/useStore';
-import { Sidebar } from './components/Sidebar';
-import { DashboardPage } from './pages/Dashboard';
-import { PipelinesPage } from './pages/Pipelines';
-import { IncidentsPage } from './pages/Incidents';
-import { AgentsPage } from './pages/Agents';
-import { MemoryPage } from './pages/Memory';
-import { RecommendationsPage } from './pages/Recommendations';
-import { ConnectorsPage } from './pages/Connectors';
-import { AuditPage } from './pages/Audit';
-import { RunbooksPage } from './pages/runbooks/RunbooksPage';
-import { MetricsPage } from './pages/Metrics';                 // ← NEW
-import { LoginPage } from './pages/Login';
-import { LandingPage } from './pages/Landing';
-import { auth } from './services/api';
-import { GlobalLoader } from './components/GlobalLoader';
-import { GlobalToaster } from './components/GlobalToaster';
-import { Header } from './components/Header';
-import { ConnectorModal } from './components/ConnectorModal';
-import { useState } from 'react';
+import { type ReactNode } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { StoreProvider } from "./hooks/useStore";
+import { Sidebar } from "./components/Sidebar";
+import { DashboardPage } from "./pages/Dashboard";
+import { PipelinesPage } from "./pages/Pipelines";
+import { IncidentsPage } from "./pages/Incidents";
+import { AgentsPage } from "./pages/Agents";
+import { MemoryPage } from "./pages/Memory";
+import { RecommendationsPage } from "./pages/Recommendations";
+import { ConnectorsPage } from "./pages/Connectors";
+import { AuditPage } from "./pages/Audit";
+import { RunbooksPage } from "./pages/runbooks/RunbooksPage";
+import { MetricsPage } from "./pages/Metrics"; // ← NEW
+import { LoginPage } from "./pages/Login";
+import { LandingPage } from "./pages/Landing";
+import { auth } from "./services/api";
+import { GlobalLoader } from "./components/GlobalLoader";
+import { GlobalToaster } from "./components/GlobalToaster";
+import { Header } from "./components/Header";
+import { ConnectorModal } from "./components/ConnectorModal";
+import { useState } from "react";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const loc = useLocation();
@@ -30,55 +30,61 @@ function RequireAuth({ children }: { children: ReactNode }) {
 }
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
-  '/app': {
-    title: 'System Overview',
-    subtitle: 'Autonomous Control Plane · Observe → Reason → Plan → Act → Learn'
+  "/app": {
+    title: "System Overview",
+    subtitle:
+      "Autonomous Control Plane · Observe → Reason → Plan → Act → Learn",
   },
-  '/app/pipelines': {
-    title: 'Data Pipelines',
-    subtitle: 'Monitor and manage cross-platform data processing workflows'
+  "/app/pipelines": {
+    title: "Data Pipelines",
+    subtitle: "Monitor and manage cross-platform data processing workflows",
   },
-  '/app/incidents': {
-    title: 'Incident Loop',
-    subtitle: 'Real-time incident detection, analysis and automated remediation'
+  "/app/incidents": {
+    title: "Incident Loop",
+    subtitle:
+      "Real-time incident detection, analysis and automated remediation",
   },
-  '/app/agents': {
-    title: 'Agent Mesh',
-    subtitle: 'Autonomous AI agents collaborating on data operations'
+  "/app/agents": {
+    title: "Agent Mesh",
+    subtitle: "Autonomous AI agents collaborating on data operations",
   },
-  '/app/connectors': {
-    title: 'Source Connectors',
-    subtitle: 'Manage secure connections to cloud platforms and repositories'
+  "/app/connectors": {
+    title: "Source Connectors",
+    subtitle: "Manage secure connections to cloud platforms and repositories",
   },
-  '/app/memory': {
-    title: 'System Memory',
-    subtitle: 'Historical context and learned patterns for better decision making'
+  "/app/memory": {
+    title: "System Memory",
+    subtitle:
+      "Historical context and learned patterns for better decision making",
   },
-  '/app/recommendations': {
-    title: 'Optimize',
-    subtitle: 'AI-driven suggestions for performance and cost improvements'
+  "/app/recommendations": {
+    title: "Optimize",
+    subtitle: "AI-driven suggestions for performance and cost improvements",
   },
-  '/app/audit': {
-    title: 'Audit Trail',
-    subtitle: 'Complete forensic record of all manual and automated actions'
+  "/app/audit": {
+    title: "Audit Trail",
+    subtitle: "Complete forensic record of all manual and automated actions",
   },
-  '/app/runbooks': {
-    title: 'Runbooks',
-    subtitle: 'Upload SOPs · stored locally · indexed into the RAG vector store'
+  "/app/runbooks": {
+    title: "Runbooks",
+    subtitle:
+      "Upload SOPs · stored locally · indexed into the RAG vector store",
   },
-  '/app/metrics': {                                            // ← NEW
-    title: 'Performance Metrics',
-    subtitle: 'Pipelines · RAG retrieval · Mistral LLM latency'
-  }
+  "/app/metrics": {
+    // ← NEW
+    title: "Performance Metrics",
+    subtitle: "Pipelines · RAG retrieval · LLM latency",
+  },
 };
 
 function Shell() {
   const { pathname } = useLocation();
   const [showConnectorModal, setShowConnectorModal] = useState(false);
 
-  const currentPath = Object.keys(PAGE_META)
-    .sort((a, b) => b.length - a.length)
-    .find(p => pathname === p || pathname.startsWith(p + '/')) || '/app';
+  const currentPath =
+    Object.keys(PAGE_META)
+      .sort((a, b) => b.length - a.length)
+      .find((p) => pathname === p || pathname.startsWith(p + "/")) || "/app";
 
   const meta = PAGE_META[currentPath];
 
@@ -93,7 +99,7 @@ function Shell() {
           initialView="list"
           onSuccess={() => {
             setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('connectors-updated'));
+              window.dispatchEvent(new CustomEvent("connectors-updated"));
             }, 100);
           }}
         />
@@ -115,11 +121,14 @@ function Shell() {
               <Route path="/incidents/:id" element={<IncidentsPage />} />
               <Route path="/agents" element={<AgentsPage />} />
               <Route path="/memory" element={<MemoryPage />} />
-              <Route path="/recommendations" element={<RecommendationsPage />} />
+              <Route
+                path="/recommendations"
+                element={<RecommendationsPage />}
+              />
               <Route path="/connectors" element={<ConnectorsPage />} />
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/runbooks" element={<RunbooksPage />} />
-              <Route path="/metrics" element={<MetricsPage />} />        {/* ← NEW */}
+              <Route path="/metrics" element={<MetricsPage />} /> {/* ← NEW */}
             </Routes>
           </main>
         </div>
@@ -133,7 +142,10 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/runbooks" element={<Navigate to="/app/runbooks" replace />} />
+      <Route
+        path="/runbooks"
+        element={<Navigate to="/app/runbooks" replace />}
+      />
       <Route
         path="/app/*"
         element={
