@@ -28,7 +28,7 @@ type Phase = "pick" | "analyzing" | "review";
 /**
  * Two-phase wizard:
  *   pick      → user picks a file
- *   analyzing → backend extracts text and asks Mistral for metadata
+ *   analyzing → backend extracts text and consults the Sentry Assistant for metadata
  *   review    → form is pre-filled, user can edit, then clicks "Upload & Index"
  *
  * Categories are constrained to ADF / Databricks / Git / AWS Glue.
@@ -213,9 +213,9 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                   </h3>
                   <p className="text-xs text-[#6B7280]">
                     {phase === "pick" &&
-                      "Drop a file and Mistral will suggest the catalogue metadata"}
+                      "Drop a file and the Sentry Assistant will pre-draft the catalogue metadata for you"}
                     {phase === "analyzing" &&
-                      "Extracting text and asking Mistral to summarise…"}
+                      "Analyzing content… the Assistant is extracting an operational summary…"}
                     {phase === "review" &&
                       "You can edit anything before it is indexed into the RAG store"}
                   </p>
@@ -267,8 +267,8 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                           Drag &amp; drop a runbook here, or click to browse
                         </p>
                         <p className="text-[11px] text-gray-400 mt-1">
-                          Mistral will read the file and suggest the title,
-                          description, and steps.
+                          The Sentry Assistant will analyze the document to pre-fill the
+                          title, description, and steps for you.
                         </p>
                         <p className="text-[12px] text-gray-500 mt-1">
                           PDF, DOCX, Markdown, or TXT · 20 MB max
@@ -292,8 +292,8 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                       Reading <span className="font-mono">{file?.name}</span>
                     </p>
                     <p className="text-xs text-[#6B7280] mt-1">
-                      Extracting text · asking Mistral for a title, category,
-                      and steps…
+                      Extracting insights · the Sentry Assistant is drafting a title and
+                      steps from your document…
                     </p>
                   </div>
                 </div>
@@ -306,7 +306,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                     <div className="bg-sky-50/50 border border-sky-100 text-sky-900 text-[11px] px-3 py-2 rounded-lg flex items-start gap-2">
                       <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-sky-500" />
                       <span>
-                        Mistral suggested the fields below from{" "}
+                        The Sentry Assistant suggested these fields from{" "}
                         <span className="font-mono">{file?.name}</span>
                         {suggestion.extracted_chars
                           ? ` (${suggestion.extracted_chars.toLocaleString()} chars extracted)`
