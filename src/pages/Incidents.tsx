@@ -377,7 +377,7 @@ function IncidentDetail({
             ["agents", "Agent Trace"],
             ["dag", "Topology"],
             ["tools", "Tool Calls"],
-            ["memory", "Memory"],
+            ["memory", "History"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -680,7 +680,7 @@ function MemoryRetrieval({ similar }: { similar: MemoryEntry[] }) {
   return (
     <div className="space-y-3 max-w-4xl">
       <h5 className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF] mb-1">
-        Retrieved Memory · {similar.length} matches
+        Retrieved History · {similar.length} matches
       </h5>
       {similar.map((s) => (
         <div

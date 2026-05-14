@@ -53,7 +53,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Manage secure connections to cloud platforms and repositories",
   },
   "/app/memory": {
-    title: "System Memory",
+    title: "System History",
     subtitle:
       "Historical context and learned patterns for better decision making",
   },

@@ -14,7 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
-  Gauge,                      // ← NEW icon for Metrics
+  Gauge, // ← NEW icon for Metrics
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useStore } from "../hooks/useStore";
@@ -26,9 +26,9 @@ const NAV = [
   { to: "/app/pipelines", icon: Database, label: "Pipelines" },
   { to: "/app/runbooks", icon: BookOpen, label: "Runbooks" },
   { to: "/app/incidents", icon: ShieldAlert, label: "Incident Timeline" },
-  { to: "/app/agents", icon: Brain, label: "Agent Mesh" },
-  { to: "/app/memory", icon: History, label: "Memory" },
-  { to: "/app/metrics", icon: Gauge, label: "Metrics" },   // ← NEW
+  // { to: "/app/agents", icon: Brain, label: "Agent Mesh" },
+  { to: "/app/memory", icon: History, label: "History" },
+  { to: "/app/metrics", icon: Gauge, label: "Metrics" }, // ← NEW
   // { to: "/app/recommendations", icon: Lightbulb, label: "Optimize" },
   { to: "/app/audit", icon: Wrench, label: "Audit Trail" },
 ];
@@ -104,7 +104,7 @@ export function Sidebar() {
                     </span>
                   )}
                 </>
-               )}
+              )}
               {isCollapsed &&
                 item.to === "/app/incidents" &&
                 openIncidents > 0 && (

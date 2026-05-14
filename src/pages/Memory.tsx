@@ -81,7 +81,7 @@ export function MemoryPage() {
   return (
     <>
       {loading ? (
-        <Loading message="Syncing Agentic Memory..." />
+        <Loading message="Syncing Agentic History..." />
       ) : (
         <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-8">
@@ -146,7 +146,7 @@ export function MemoryPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-              placeholder="Search all memory entries…"
+              placeholder="Search all history entries…"
               className="flex-1 px-2 py-2 text-sm bg-transparent outline-none placeholder:text-[#9CA3AF]"
             />
             {query && (
@@ -191,7 +191,7 @@ export function MemoryPage() {
             <div className="grid grid-cols-1 gap-4 lg:hidden">
               {visible.length === 0 ? (
                 <p className="text-center py-12 text-[#9CA3AF] italic text-sm">
-                  No memory entries.
+                  No history entries.
                 </p>
               ) : (
                 visible.map((m) => <MemoryCard key={m.id} m={m} />)
@@ -202,7 +202,7 @@ export function MemoryPage() {
             <div className="hidden lg:grid lg:grid-cols-2 gap-4 items-start">
               {visible.length === 0 ? (
                 <p className="col-span-2 text-center py-12 text-[#9CA3AF] italic text-sm">
-                  No memory entries.
+                  No history entries.
                 </p>
               ) : (
                 <>

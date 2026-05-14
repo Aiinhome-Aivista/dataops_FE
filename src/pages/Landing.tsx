@@ -106,7 +106,7 @@ export function LandingPage() {
             <FeatureCard
               icon={GitBranch}
               title="Learn"
-              body="Each resolved incident gets a Reflexion-style writeback to episodic memory. High-confidence fixes get promoted to procedural playbooks the next agent run can cite."
+              body="Each resolved incident gets a Reflexion-style writeback to episodic history. High-confidence fixes get promoted to procedural playbooks the next agent run can cite."
             />
           </div>
         </div>
@@ -135,7 +135,7 @@ export function LandingPage() {
           <Step
             n="3"
             title="The Diagnosis Agent reasons"
-            body="Five guardrails run in sequence — input PII redaction, prompt-injection neutralization, retrieval threshold, execution rail, output schema — around an LLM call grounded by RAG over three memory tiers."
+            body="Five guardrails run in sequence — input PII redaction, prompt-injection neutralization, retrieval threshold, execution rail, output schema — around an LLM call grounded by RAG over three history tiers."
           />
           <Step
             n="4"
@@ -150,7 +150,7 @@ export function LandingPage() {
           <Step
             n="6"
             title="The Learning Agent reflects"
-            body="On success, write back to memory. On failure, escalate to on-call. Either way, the next similar incident benefits from the recorded experience."
+            body="On success, write back to history. On failure, escalate to on-call. Either way, the next similar incident benefits from the recorded experience."
           />
         </ol>
       </section>
