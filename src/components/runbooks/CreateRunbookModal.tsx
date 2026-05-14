@@ -185,7 +185,6 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/50 z-60 flex items-center justify-center p-4 custom-scrollbar"
-          onClick={handleClose}
         >
           <motion.div
             initial={{ scale: 0.95, opacity: 0, y: 10 }}
@@ -461,7 +460,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                     type="button"
                     onClick={() => handleSubmit()}
                     disabled={submitting || (suggestion?.relevance_score !== undefined && suggestion.relevance_score < 75)}
-                    className="px-5 py-2 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2"
+                    className="px-5 py-2 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:bg-[#111827] flex items-center gap-2"
                   >
                     {submitting ? (
                       <>

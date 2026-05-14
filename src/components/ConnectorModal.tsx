@@ -225,7 +225,6 @@ export function ConnectorModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 overflow-y-auto"
-          onClick={onClose}
         >
           <motion.div
             initial={{ scale: 0.96, opacity: 0, y: 8 }}

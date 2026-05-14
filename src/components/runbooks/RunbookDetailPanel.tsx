@@ -53,7 +53,6 @@ export function RunbookDetailPanel({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/40 z-60 flex justify-end"
-        onClick={onClose}
       >
         <motion.div
           initial={{ x: "100%" }}
