@@ -759,73 +759,22 @@ function ZigZagIncidentFlow({ incident }: { incident: Incident }) {
   return (
     <div className="flex-1 overflow-y-auto p-10 bg-gray-50 relative flex flex-col items-center">
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#111827 1px, transparent 1px), linear-gradient(90deg, #111827 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-      <div className="w-full max-w-6xl z-10">
-        <div className="flex flex-col gap-y-16">
-          {(() => {
-            const chunkedSteps = [];
-            for (let i = 0; i < steps.length; i += 4) {
-              chunkedSteps.push(steps.slice(i, i + 4));
-            }
-            return chunkedSteps.map((chunk, rowIndex) => {
-              const isReversed = rowIndex % 2 !== 0;
-              const displaySteps = isReversed ? [...chunk].reverse() : chunk;
-              return (
-                <div key={rowIndex} className="relative">
-                  <div className="grid grid-cols-4 gap-x-12 gap-y-16">
-                    {displaySteps.map((step, i) => {
-                      const showHorizontalArrow = isReversed
-                        ? i > 0
-                        : i < displaySteps.length - 1;
-                      const showVerticalArrow =
-                        (isReversed ? i === 0 : i === displaySteps.length - 1) &&
-                        rowIndex < chunkedSteps.length - 1;
-                      return (
-                        <div
-                          key={step.id}
-                          className="relative group/step"
-                          style={
-                            isReversed && i === 0
-                              ? { gridColumnStart: 4 - chunk.length + 1 }
-                              : {}
-                          }
-                        >
-                          <FlowStepCard step={step} index={rowIndex * 4 + i} />
-                          {/* Horizontal Arrow */}
-                          {showHorizontalArrow && (
-                            <div
-                              className={cn(
-                                "absolute top-1/2 -translate-y-1/2 z-10 flex items-center",
-                                isReversed ? "-left-8" : "-right-8"
-                              )}
-                            >
-                              {isReversed ? (
-                                <div className="flex items-center">
-                                  <div className="w-0 h-0 border-t-4 border-b-4 border-r-4 border-t-transparent border-b-transparent border-r-[#9CA3AF]" />
-                                  <div className="w-6 h-px bg-[#9CA3AF]" />
-                                </div>
-                              ) : (
-                                <div className="flex items-center">
-                                  <div className="w-6 h-px bg-[#9CA3AF]" />
-                                  <div className="w-0 h-0 border-t-4 border-b-4 border-l-4 border-t-transparent border-b-transparent border-l-[#9CA3AF]" />
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {/* Vertical Arrow */}
-                          {showVerticalArrow && (
-                            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                              <div className="w-px h-8 bg-[#9CA3AF]" />
-                              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#9CA3AF]" />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+      <div className="w-full max-w-xl z-10">
+        <div className="flex flex-col items-center">
+          {steps.map((step, i) => (
+            <div key={step.id} className="w-full flex flex-col items-center">
+              <div className="w-full relative group/step">
+                <FlowStepCard step={step} index={i} />
+              </div>
+              {/* Vertical Arrow */}
+              {i < steps.length - 1 && (
+                <div className="flex flex-col items-center my-3">
+                  <div className="w-px h-8 bg-[#9CA3AF]" />
+                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#9CA3AF]" />
                 </div>
-              );
-            });
-          })()}
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
