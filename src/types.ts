@@ -360,4 +360,5 @@ export interface RunbookSuggestion {
   model?: string | null;
   latency_ms?: number | null;
   extracted_chars?: number;
+  relevance_score?: number;
 }

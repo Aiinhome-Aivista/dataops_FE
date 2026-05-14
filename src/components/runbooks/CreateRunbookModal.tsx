@@ -302,19 +302,27 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
               {/* ─── PHASE 2: REVIEW & EDIT ───────────────────────── */}
               {phase === "review" && (
                 <form onSubmit={handleSubmit} className="space-y-5">
-                  {/* {suggestion && (
-                    <div className="bg-sky-50/50 border border-sky-100 text-sky-900 text-[11px] px-3 py-2 rounded-lg flex items-start gap-2">
-                      <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-sky-500" />
+                  {suggestion?.relevance_score !== undefined && (
+                    <div
+                      className={`text-[11px] px-3 py-2 rounded-lg flex items-start gap-2 border ${
+                        suggestion.relevance_score >= 75
+                          ? "bg-emerald-50/50 border-emerald-100 text-emerald-900"
+                          : "bg-rose-50/50 border-rose-100 text-rose-900"
+                      }`}
+                    >
+                      {suggestion.relevance_score >= 75 ? (
+                        <Check className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-500" />
+                      ) : (
+                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-500" />
+                      )}
                       <span>
-                        The Sentry Assistant suggested these fields from{" "}
-                        <span className="font-mono">{file?.name}</span>
-                        {suggestion.extracted_chars
-                          ? ` (${suggestion.extracted_chars.toLocaleString()} chars extracted)`
-                          : ""}
-                        . Edit anything that looks off, then commit.
+                        <strong>Relevance Score: {suggestion.relevance_score}/100</strong>
+                        {suggestion.relevance_score < 75
+                          ? " — Document relevance is below the 75 threshold. Uploading is disabled."
+                          : " — Good quality document detected. Ready for indexing."}
                       </span>
                     </div>
-                  )} */}
+                  )}
 
                   {/* Title + Category */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -452,7 +460,7 @@ export function CreateRunbookModal({ open, onClose, onSaved }: Props) {
                   <button
                     type="button"
                     onClick={() => handleSubmit()}
-                    disabled={submitting}
+                    disabled={submitting || (suggestion?.relevance_score !== undefined && suggestion.relevance_score < 75)}
                     className="px-5 py-2 bg-[#111827] hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2"
                   >
                     {submitting ? (
