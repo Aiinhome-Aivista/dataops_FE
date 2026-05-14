@@ -113,7 +113,7 @@ export function IncidentsPage() {
   return (
     <>
       {state.isLoading && state.incidents.length === 0 ? (
-        <Loading message="Syncing Incident Loop..." fullPage={false} />
+        <Loading message="Syncing Incident Timeline..." fullPage={false} />
       ) : (
         <main className="flex-1 overflow-hidden flex">
           {/* Incident sidebar */}

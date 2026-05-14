@@ -25,7 +25,7 @@ const NAV = [
   { to: "/app/connectors", icon: Plug, label: "Connectors" },
   { to: "/app/pipelines", icon: Database, label: "Pipelines" },
   { to: "/app/runbooks", icon: BookOpen, label: "Runbooks" },
-  { to: "/app/incidents", icon: ShieldAlert, label: "Incident Loop" },
+  { to: "/app/incidents", icon: ShieldAlert, label: "Incident Timeline" },
   { to: "/app/agents", icon: Brain, label: "Agent Mesh" },
   { to: "/app/memory", icon: History, label: "Memory" },
   { to: "/app/metrics", icon: Gauge, label: "Metrics" },   // ← NEW

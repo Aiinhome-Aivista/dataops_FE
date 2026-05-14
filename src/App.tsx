@@ -40,7 +40,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Monitor and manage cross-platform data processing workflows",
   },
   "/app/incidents": {
-    title: "Incident Loop",
+    title: "Incident Timeline",
     subtitle:
       "Real-time incident detection, analysis and automated remediation",
   },
