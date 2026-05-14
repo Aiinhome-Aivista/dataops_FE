@@ -119,9 +119,14 @@ export function PipelinesPage() {
         ? localPipelines
         : state.pipelines;
     if (search) {
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(search.toLowerCase()),
-      );
+      const lowerSearch = search.toLowerCase();
+      list = list.filter((p) => {
+        const nameMatch = p.name.toLowerCase().includes(lowerSearch);
+        const conn = connectorMap[p.connector_id];
+        const sourceName = conn ? conn.name : (p.connector_id || "");
+        const sourceMatch = String(sourceName).toLowerCase().includes(lowerSearch);
+        return nameMatch || sourceMatch;
+      });
     }
     if (filter !== "ALL") {
       list = list.filter((p) => {
@@ -130,7 +135,7 @@ export function PipelinesPage() {
       });
     }
     return list;
-  }, [state.pipelines, localPipelines, filter, connectorId, search]);
+  }, [state.pipelines, localPipelines, filter, connectorId, search, connectorMap]);
 
   const selected = id
     ? localPipelines.find((p) => p.id === String(id)) ||
@@ -185,7 +190,7 @@ export function PipelinesPage() {
               <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
               <input
                 type="text"
-                placeholder="Search by name..."
+                placeholder="Search by name or source..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 text-sm bg-[#F9FAFB] border-none rounded-md focus:ring-1 focus:ring-gray-300 outline-none"
