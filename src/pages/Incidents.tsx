@@ -800,13 +800,13 @@ function ZigZagIncidentFlow({ incident }: { incident: Incident }) {
                             >
                               {isReversed ? (
                                 <div className="flex items-center">
-                                  <div className="w-0 h-0 border-t-4 border-b-4 border-r-4 border-t-transparent border-b-transparent border-r-[#D1D5DB]" />
-                                  <div className="w-6 h-px bg-[#D1D5DB]" />
+                                  <div className="w-0 h-0 border-t-4 border-b-4 border-r-4 border-t-transparent border-b-transparent border-r-[#9CA3AF]" />
+                                  <div className="w-6 h-px bg-[#9CA3AF]" />
                                 </div>
                               ) : (
                                 <div className="flex items-center">
-                                  <div className="w-6 h-px bg-[#D1D5DB]" />
-                                  <div className="w-0 h-0 border-t-4 border-b-4 border-l-4 border-t-transparent border-b-transparent border-l-[#D1D5DB]" />
+                                  <div className="w-6 h-px bg-[#9CA3AF]" />
+                                  <div className="w-0 h-0 border-t-4 border-b-4 border-l-4 border-t-transparent border-b-transparent border-l-[#9CA3AF]" />
                                 </div>
                               )}
                             </div>
@@ -814,8 +814,8 @@ function ZigZagIncidentFlow({ incident }: { incident: Incident }) {
                           {/* Vertical Arrow */}
                           {showVerticalArrow && (
                             <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                              <div className="w-px h-8 bg-[#D1D5DB]" />
-                              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#D1D5DB]" />
+                              <div className="w-px h-8 bg-[#9CA3AF]" />
+                              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#9CA3AF]" />
                             </div>
                           )}
                         </div>
