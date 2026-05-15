@@ -5,6 +5,7 @@ export type IncidentStatus =
   | 'Reasoning'
   | 'Planning'
   | 'Awaiting Approval'
+  | 'Processing'         // NEW — set when DataOps Eng clicks Check button in email
   | 'Executing'
   | 'Evaluating'
   | 'Remediated'
@@ -124,6 +125,12 @@ export interface Incident {
   initial_email_role?: string | null;
   escalation_email_sent_at?: string | null;
   escalation_email_recipients?: EscalationRecipient[] | null;
+
+  // ─── NEW: Check-button acknowledgement + explicit user resolution ──
+  acknowledged_at?: string | null;
+  acknowledged_by?: string | null;
+  resolved?: 'yes' | 'no' | string | null;
+  resolved_time?: string | null;
 }
 
 export interface AgentStatus {

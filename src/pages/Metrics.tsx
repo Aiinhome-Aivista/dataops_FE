@@ -25,19 +25,22 @@ const WINDOW_OPTIONS: { label: string; hours: number }[] = [
   { label: "30d", hours: 24 * 30 },
 ];
 
-function fmtSec(s: number): string {
-  if (!s) return "—";
+function fmtSec(s: number | null | undefined): string {
+  if (s == null || !Number.isFinite(s as number)) return "—";
+  if (s === 0) return "—";
   if (s < 1) return `${(s * 1000).toFixed(0)}ms`;
   if (s < 60) return `${s.toFixed(1)}s`;
   return `${(s / 60).toFixed(1)}m`;
 }
 
-function fmtPct(v: number): string {
+function fmtPct(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v as number)) return "—";
   return `${v.toFixed(1)}%`;
 }
 
-function fmtMs(v: number): string {
-  if (!v) return "—";
+function fmtMs(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v as number)) return "—";
+  if (v === 0) return "—";
   if (v < 1000) return `${v.toFixed(0)}ms`;
   return `${(v / 1000).toFixed(2)}s`;
 }
@@ -49,29 +52,30 @@ export function MetricsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     setError(null);
     try {
-      // Commenting out live API calls to prevent 500 server errors
-
       const [sys, rows] = await Promise.all([
         api.systemMetrics(hours),
         api.pipelinePerformance(hours),
       ]);
       setData(sys);
-      setPipelineRows(rows);
+      setPipelineRows(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
+      // On a poll-refresh failure, keep whatever data we already have on
+      // screen instead of clearing it — the dashboard should degrade
+      // gracefully, not flash to "Loading…" every 15 seconds.
       setError(e?.message || "Failed to load metrics");
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
-    // refresh every 15s while page is open
-    const id = window.setInterval(load, 15_000);
+    // First load shows the spinner; subsequent auto-refreshes are silent.
+    load(true);
+    const id = window.setInterval(() => load(false), 15_000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hours]);
@@ -125,7 +129,7 @@ export function MetricsPage() {
                   ))}
                 </div>
                 <button
-                  onClick={load}
+                  onClick={() => load(true)}
                   className="inline-flex items-center gap-1 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold uppercase tracking-widest rounded-lg shadow-sm"
                 >
                   <RefreshCw
