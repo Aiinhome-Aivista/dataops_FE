@@ -719,9 +719,16 @@ function AnalysisPanel({ analysis }: { analysis: any }) {
             </div>
             <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mt-0.5">
               Generated{" "}
-              {formatDistanceToNow(new Date(analysis.created_at), {
-                addSuffix: true,
-              })}
+              {formatDistanceToNow(
+                new Date(
+                  analysis.created_at.endsWith("Z")
+                    ? analysis.created_at
+                    : `${analysis.created_at}Z`,
+                ),
+                {
+                  addSuffix: true,
+                },
+              )}
             </div>
           </div>
         </div>
