@@ -94,6 +94,11 @@ export interface IncidentTimelineEntry {
   detail: string;
 }
 
+export interface EscalationRecipient {
+  email: string;
+  role: string;
+}
+
 export interface Incident {
   id: string;
   pipeline_id: string;
@@ -112,6 +117,13 @@ export interface Incident {
   confidence_score?: number | null;
   tool_calls: ToolCallRecord[];
   timeline: IncidentTimelineEntry[];
+
+  // ─── Email-dispatch lifecycle (drives the Incident Timeline page) ──
+  initial_email_sent_at?: string | null;
+  initial_email_recipient?: string | null;
+  initial_email_role?: string | null;
+  escalation_email_sent_at?: string | null;
+  escalation_email_recipients?: EscalationRecipient[] | null;
 }
 
 export interface AgentStatus {

@@ -1,714 +1,647 @@
+/**
+ * Incident Timeline page.
+ *
+ * Layout (matches the design mock):
+ *
+ *  ┌────────────────────┬────────────────────────────────────────────┐
+ *  │  OPEN  ALL  CLOSED │                                            │
+ *  │  ───────────────── │  STEP 1   Incident Detection      System   │
+ *  │  search…           │  STEP 2   Initial Notification    Mailer   │
+ *  │  N incidents       │  STEP 3   Escalation              System   │
+ *  │  [card #1]         │                                            │
+ *  │  [card #2]   ◄──── │  (renders for the selected incident)       │
+ *  │  [card #3]         │                                            │
+ *  └────────────────────┴────────────────────────────────────────────┘
+ *
+ * The card on the left shows only what the spec asks for:
+ *   - pipeline / pipeline_id
+ *   - one-line summary
+ *   - created_at (formatted as "Xm ago")
+ *
+ * The three timeline steps on the right are entirely driven by the
+ * incident row's new columns:
+ *   - STEP 1 — always shown; uses `detected_at`
+ *   - STEP 2 — shown if `initial_email_sent_at` is set
+ *   - STEP 3 — shown if `escalation_email_sent_at` is set
+ */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { motion } from "motion/react";
 import {
-  Activity as ActivityIcon,
-  ArrowRight,
-  Brain,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  GitBranch,
   Search,
   ShieldAlert,
-  Terminal,
-  ThumbsDown,
-  UserCheck,
-  Wrench,
-  Zap,
+  Mail,
+  AlertTriangle,
+  Cpu,
+  Check,
+  X,
+  Loader2,
+  ChevronDown,
 } from "lucide-react";
-import { LiveLogStream } from "../components/LiveLogStream";
-import { RiskBadge, StatusBadge } from "../components/Badges";
-import { PipelineDAG } from "../components/PipelineDAG";
+import { motion } from "motion/react";
 import { useStore } from "../hooks/useStore";
-import { api } from "../services/api";
-import { cn, formatTime, timeAgo } from "../lib/utils";
-import { Loading } from "../components/Loading";
-import type { Incident, MemoryEntry } from "../types";
+import { cn, formatDateTime, timeAgo } from "../lib/utils";
+import type { Incident, EscalationRecipient } from "../types";
 
-const LOOP_STAGES = [
-  {
-    id: "detected",
-    label: "Observe",
-    icon: ActivityIcon,
-    statuses: ["Detected"],
-  },
-  { id: "reasoning", label: "Reason", icon: Brain, statuses: ["Reasoning"] },
-  {
-    id: "planning",
-    label: "Plan",
-    icon: GitBranch,
-    statuses: ["Planning", "Awaiting Approval"],
-  },
-  { id: "executing", label: "Act", icon: Wrench, statuses: ["Executing"] },
-  {
-    id: "evaluating",
-    label: "Evaluate",
-    icon: CheckCircle2,
-    statuses: ["Evaluating"],
-  },
-  {
-    id: "remediated",
-    label: "Learn",
-    icon: Zap,
-    statuses: ["Remediated", "Failed", "Escalated"],
-  },
-];
+// ─────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────
+
+type FilterTab = "open" | "all" | "closed";
+
+const OPEN_STATUSES = new Set([
+  "Detected",
+  "Reasoning",
+  "Planning",
+  "Awaiting Approval",
+  "Executing",
+  "Evaluating",
+]);
+
+function isOpen(i: Incident): boolean {
+  return OPEN_STATUSES.has(i.status);
+}
+
+function isClosed(i: Incident): boolean {
+  return (
+    i.status === "Remediated" ||
+    i.status === "Escalated" ||
+    i.status === "Failed"
+  );
+}
+
+/** Pull the most useful one-line summary from whatever the backend filled in. */
+function bestSummary(i: Incident): string {
+  return (
+    i.agent_thought ||
+    i.proposed_action ||
+    i.root_cause ||
+    i.error_log?.split("\n")[0] ||
+    "Awaiting diagnosis…"
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────
 
 export function IncidentsPage() {
   const { state, approveIncident, rejectIncident } = useStore();
-  const { id } = useParams();
+  const { id: routeId } = useParams();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<"open" | "all" | "closed">("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [clearMenu, setClearMenu] = useState(false);
-  const [clearing, setClearing] = useState(false);
 
+  const [filter, setFilter] = useState<FilterTab>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(
+    routeId ?? null,
+  );
+  const [busyAction, setBusyAction] = useState<"approve" | "reject" | null>(
+    null,
+  );
+
+  // Filtered list (memoised — recomputes only when filter/search/data change)
   const filtered = useMemo(() => {
-    let list = [...state.incidents];
-    if (filter === "open")
-      list = list.filter(
-        (i) => i.status !== "Remediated" && i.status !== "Escalated",
-      );
-    if (filter === "closed")
-      list = list.filter(
-        (i) => i.status === "Remediated" || i.status === "Escalated",
-      );
+    let list = [...(state.incidents || [])];
+    if (filter === "open") list = list.filter(isOpen);
+    if (filter === "closed") list = list.filter(isClosed);
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter((i) => i.pipeline_name.toLowerCase().includes(q));
+      list = list.filter(
+        (i) =>
+          i.pipeline_name?.toLowerCase().includes(q) ||
+          String(i.id).includes(q) ||
+          bestSummary(i).toLowerCase().includes(q),
+      );
     }
 
+    // Newest first
+    list.sort(
+      (a, b) =>
+        new Date(b.detected_at).getTime() -
+        new Date(a.detected_at).getTime(),
+    );
     return list;
   }, [state.incidents, filter, searchQuery]);
 
-  const selected = id ? state.incidents.find((i) => String(i.id) === String(id)) : null;
-
-  const clear = async (scope: "closed" | "open" | "all") => {
-    setClearMenu(false);
-    const labels: Record<typeof scope, string> = {
-      closed: "closed (Remediated/Escalated/Failed)",
-      open: "open (Detected/Reasoning/Awaiting Approval/...)",
-      all: "ALL",
-    } as const;
-    if (
-      !confirm(
-        `Permanently delete ${labels[scope]} incidents? This cannot be undone.`,
-      )
-    )
+  // Auto-select first matching incident if nothing is selected (or the
+  // current selection no longer matches the filter).
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setSelectedId(null);
       return;
-    setClearing(true);
+    }
+    const stillThere = filtered.some(
+      (i) => String(i.id) === String(selectedId),
+    );
+    if (!stillThere) setSelectedId(String(filtered[0].id));
+  }, [filtered, selectedId]);
+
+  // Keep the URL in sync with the selection
+  useEffect(() => {
+    if (selectedId && routeId !== selectedId) {
+      navigate(`/app/incidents/${selectedId}`, { replace: true });
+    }
+  }, [selectedId, routeId, navigate]);
+
+  const selected = useMemo(
+    () =>
+      (state.incidents || []).find((i) => String(i.id) === String(selectedId)) ||
+      null,
+    [state.incidents, selectedId],
+  );
+
+  // Action handlers
+  const handleApprove = async () => {
+    if (!selected) return;
+    setBusyAction("approve");
     try {
-      const r = await api.deleteIncidents({ status: scope });
-      window.location.reload();
-      console.info(`deleted ${r.deleted} incidents`);
-    } catch (e: any) {
-      alert(`Clear failed: ${e.message}`);
+      await approveIncident(String(selected.id));
     } finally {
-      setClearing(false);
+      setBusyAction(null);
+    }
+  };
+  const handleReject = async () => {
+    if (!selected) return;
+    setBusyAction("reject");
+    try {
+      await rejectIncident(String(selected.id));
+    } finally {
+      setBusyAction(null);
     }
   };
 
   return (
-    <>
-      {state.isLoading && state.incidents.length === 0 ? (
-        <Loading message="Syncing Incident Timeline..." fullPage={false} />
-      ) : (
-        <main className="flex-1 overflow-hidden flex">
-          {/* Incident sidebar */}
-          <div className="w-[340px] border-r border-[#E5E7EB] bg-white flex flex-col shrink-0">
-            <div className="p-5 border-b border-[#E5E7EB]">
-              <div className="flex items-center gap-1 mb-3">
-                {(["open", "all", "closed"] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={cn(
-                      "flex-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.15em] rounded transition-all",
-                      filter === f
-                        ? "bg-[#111827] text-white"
-                        : "bg-gray-50 text-[#6B7280] hover:bg-gray-100",
-                    )}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-              <div className="mb-3 relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-                <input
-                  type="text"
-                  placeholder="Search incidents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-[#E5E7EB] rounded bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#111827] transition-colors placeholder:text-[#9CA3AF]"
-                />
-              </div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
-                {filtered.length} incidents
-              </p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-[#F3F4F6]">
-              {filtered.length === 0 ? (
-                <div className="p-10 text-center text-[#9CA3AF] text-sm font-light italic">
-                  Observation deck empty.
-                </div>
-              ) : (
-                filtered.map((incident) => (
-                  <button
-                    key={incident.id}
-                    onClick={() => navigate(`/app/incidents/${incident.id}`)}
-                    className={cn(
-                      "w-full p-5 text-left transition-colors flex flex-col gap-2 relative",
-                      selected?.id === incident.id
-                        ? "bg-gray-50"
-                        : "hover:bg-gray-50/50",
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-blue-600 font-bold">
-                        #{incident.id}
-                      </span>
-                      <RiskBadge tier={incident.risk_tier} />
-                    </div>
-                    <h4 className="text-sm font-semibold truncate text-[#111827]">
-                      {incident.pipeline_name}
-                    </h4>
-                    {incident.root_cause && (
-                      <p className="text-[11px] text-[#6B7280] line-clamp-2 leading-snug">
-                        {incident.root_cause}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between mt-1">
-                      <StatusBadge status={incident.status} />
-                      <span className="text-[10px] text-[#9CA3AF] font-mono tabular-nums">
-                        {timeAgo(incident.detected_at)}
-                      </span>
-                    </div>
-                    {selected?.id === incident.id && (
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#111827]" />
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
+    <div className="flex-1 flex min-h-0 bg-[#F9FAFB]">
+      {/* ─── LEFT: filter + incident list ───────────────────────────── */}
+      <aside className="w-[340px] shrink-0 border-r border-[#E5E7EB] bg-white flex flex-col">
+        {/* Filter pills */}
+        <div className="p-4 border-b border-[#E5E7EB]">
+          <div className="bg-[#F3F4F6] p-1 rounded-lg flex">
+            {(["open", "all", "closed"] as FilterTab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={cn(
+                  "flex-1 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all",
+                  filter === tab
+                    ? "bg-[#111827] text-white shadow-sm"
+                    : "text-[#6B7280] hover:text-[#111827]",
+                )}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
-
-          {/* Detail */}
-          <div className="flex-1 overflow-hidden flex flex-col">
-            {!selected ? (
-              <EmptyState />
-            ) : (
-              <ZigZagIncidentFlow incident={selected} />
-            )}
+          {/* Search */}
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9CA3AF]" />
+            <input
+              type="text"
+              placeholder="Search incidents…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-xs bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-gray-400 focus:bg-white transition-colors"
+            />
           </div>
-        </main>
-      )}
-    </>
-  );
-}
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mt-3">
+            {filtered.length} INCIDENT{filtered.length === 1 ? "" : "S"}
+          </div>
+        </div>
 
-function EmptyState() {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center text-[#9CA3AF] grid-backdrop">
-      <ShieldAlert className="w-16 h-16 mb-6 opacity-10" />
-      <p className="text-xs uppercase font-bold tracking-[0.18em] text-center px-12 leading-relaxed">
-        Select an incident to begin investigation
-      </p>
-      <p className="text-[10px] mt-3 text-[#9CA3AF] uppercase tracking-[0.18em]">
-        — or inject a synthetic one to watch the loop run —
-      </p>
+        {/* List */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center text-xs text-[#9CA3AF]">
+              No incidents match this filter.
+            </div>
+          ) : (
+            <ul className="divide-y divide-[#F3F4F6]">
+              {filtered.map((inc) => {
+                const active = String(inc.id) === String(selectedId);
+                const summary = bestSummary(inc);
+                return (
+                  <li key={inc.id}>
+                    <button
+                      onClick={() => setSelectedId(String(inc.id))}
+                      className={cn(
+                        "w-full text-left p-4 transition-colors relative",
+                        active
+                          ? "bg-[#F3F4F6]"
+                          : "hover:bg-[#F9FAFB]",
+                      )}
+                    >
+                      {active && (
+                        <span className="absolute left-0 top-0 bottom-0 w-1 bg-[#111827]" />
+                      )}
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <span className="text-[10px] font-bold text-[#6B7280]">
+                          #{inc.id}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
+                            inc.risk_tier === "High"
+                              ? "bg-rose-50 text-rose-700"
+                              : inc.risk_tier === "Medium"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-emerald-50 text-emerald-700",
+                          )}
+                        >
+                          {inc.risk_tier}
+                        </span>
+                      </div>
+                      <div className="text-[13px] font-bold text-[#111827] truncate">
+                        {inc.pipeline_name}
+                      </div>
+                      <div className="text-[11px] text-[#6B7280] mt-1 leading-relaxed line-clamp-2">
+                        {summary}
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span
+                          className={cn(
+                            "text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
+                            inc.status === "Remediated"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : inc.status === "Escalated"
+                                ? "bg-rose-50 text-rose-700"
+                                : inc.status === "Failed"
+                                  ? "bg-gray-100 text-gray-600"
+                                  : "bg-blue-50 text-blue-700",
+                          )}
+                        >
+                          {inc.status}
+                        </span>
+                        <span className="text-[10px] text-[#9CA3AF] font-medium">
+                          {timeAgo(inc.detected_at)}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </aside>
+
+      {/* ─── RIGHT: timeline pane ───────────────────────────────────── */}
+      <main className="flex-1 overflow-y-auto custom-scrollbar p-8">
+        {!selected ? (
+          <div className="h-full flex items-center justify-center text-sm text-[#9CA3AF]">
+            Select an incident on the left to inspect its timeline.
+          </div>
+        ) : (
+          <TimelineView
+            incident={selected}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            busyAction={busyAction}
+          />
+        )}
+      </main>
     </div>
   );
 }
 
-function IncidentDetail({
+// ─────────────────────────────────────────────────────────────────────
+// Right-pane: the three-step timeline
+// ─────────────────────────────────────────────────────────────────────
+
+interface TimelineViewProps {
+  incident: Incident;
+  onApprove: () => Promise<void>;
+  onReject: () => Promise<void>;
+  busyAction: "approve" | "reject" | null;
+}
+
+function TimelineView({
   incident,
-  logs,
   onApprove,
   onReject,
-}: {
-  incident: Incident;
-  logs: any[];
-  onApprove: () => void;
-  onReject: () => void;
-}) {
-  const { state } = useStore();
-  const pipeline = state.pipelines.find((p) => p.id === incident.pipeline_id);
-  const [tab, setTab] = useState<
-    "overview" | "dag" | "agents" | "tools" | "memory"
-  >("overview");
-  const [similar, setSimilar] = useState<MemoryEntry[]>([]);
-
-  const currentStageIdx = LOOP_STAGES.findIndex((s) =>
-    s.statuses.includes(incident.status as any),
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    if (incident.root_cause) {
-      api
-        .searchMemory(
-          `${incident.pipeline_name} ${incident.root_cause}`,
-          "episodic",
-          4,
-        )
-        .then((r) => !cancelled && setSimilar(r))
-        .catch(() => {});
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [incident.id, incident.root_cause]);
+  busyAction,
+}: TimelineViewProps) {
+  const summary = bestSummary(incident);
+  const showApproval = incident.status === "Awaiting Approval";
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Detail header */}
-      <div className="px-10 py-7 border-b border-[#E5E7EB] flex items-start justify-between bg-gray-50/30">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-light italic tracking-tight">
-            {incident.pipeline_name}
-          </h2>
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <span className="text-[10px] font-mono text-[#9CA3AF]">
-              DETECTED · {formatTime(incident.detected_at)}
-            </span>
-            <div className="h-1 w-1 rounded-full bg-[#E5E7EB]" />
-            <span className="text-[10px] font-mono text-[#9CA3AF]">
-              ID · {incident.id}
-            </span>
-            {incident.failed_node && (
-              <>
-                <div className="h-1 w-1 rounded-full bg-[#E5E7EB]" />
-                <span className="text-[10px] font-mono text-[#9CA3AF]">
-                  NODE · {incident.failed_node}
-                </span>
-              </>
-            )}
-            {incident.confidence_score != null && (
-              <>
-                <div className="h-1 w-1 rounded-full bg-[#E5E7EB]" />
-                <span className="text-[10px] font-mono text-[#9CA3AF]">
-                  CONFIDENCE · {(incident.confidence_score * 100).toFixed(0)}%
-                </span>
-              </>
-            )}
+    <div className="max-w-3xl mx-auto">
+      {/* Header strip */}
+      <div className="mb-6 pb-4 border-b border-[#E5E7EB]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-[#111827]">
+              {incident.pipeline_name}
+            </h2>
+            <div className="flex items-center gap-3 mt-1 text-xs text-[#6B7280]">
+              <span>Incident #{incident.id}</span>
+              <span>·</span>
+              <span>{formatDateTime(incident.detected_at)}</span>
+              <span>·</span>
+              <span
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                  incident.status === "Remediated"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : incident.status === "Escalated"
+                      ? "bg-rose-100 text-rose-700"
+                      : "bg-blue-100 text-blue-700",
+                )}
+              >
+                {incident.status}
+              </span>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {incident.status === "Awaiting Approval" && (
-            <>
+          {showApproval && (
+            <div className="flex gap-2">
               <button
                 onClick={onReject}
-                className="px-5 py-2.5 bg-white border border-[#E5E7EB] text-[#111827] rounded text-xs font-semibold hover:bg-gray-50 transition-all flex items-center gap-2"
+                disabled={busyAction !== null}
+                className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[#6B7280] hover:text-rose-600 border border-[#E5E7EB] hover:border-rose-200 rounded-lg disabled:opacity-50 transition-colors"
               >
-                <ThumbsDown className="w-3.5 h-3.5" />
-                Reject
+                {busyAction === "reject" ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  "Reject"
+                )}
               </button>
               <button
                 onClick={onApprove}
-                className="px-6 py-2.5 bg-[#111827] text-white rounded text-xs font-semibold hover:bg-black transition-all flex items-center gap-2"
+                disabled={busyAction !== null}
+                className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-[#111827] hover:bg-black text-white rounded-lg shadow-sm disabled:opacity-50 transition-colors"
               >
-                <UserCheck className="w-4 h-4" />
-                Authorize Action
-              </button>
-            </>
-          )}
-          <StatusBadge status={incident.status} size="md" />
-        </div>
-      </div>
-
-      {/* Loop progress strip */}
-      <div className="px-10 py-6 border-b border-[#E5E7EB] bg-white">
-        <div className="flex items-center gap-1">
-          {LOOP_STAGES.map((stage, idx) => {
-            const isPast = idx < currentStageIdx;
-            const isCurrent = idx === currentStageIdx;
-            const isFuture = idx > currentStageIdx;
-            return (
-              <div key={stage.id} className="flex items-center gap-1 flex-1">
-                <div className="flex items-center gap-3 flex-1">
-                  <div
-                    className={cn(
-                      "w-9 h-9 rounded-md border flex items-center justify-center transition-all shrink-0",
-                      isPast && "bg-emerald-500 border-emerald-500 text-white",
-                      isCurrent && "bg-[#111827] border-[#111827] text-white",
-                      isFuture && "bg-white border-[#E5E7EB] text-[#9CA3AF]",
-                    )}
-                  >
-                    {isCurrent && incident.status !== "Failed" ? (
-                      <stage.icon className="w-4 h-4 animate-pulse" />
-                    ) : (
-                      <stage.icon className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p
-                      className={cn(
-                        "text-[10px] uppercase tracking-[0.18em] font-bold",
-                        isFuture ? "text-[#9CA3AF]" : "text-[#111827]",
-                      )}
-                    >
-                      {stage.label}
-                    </p>
-                  </div>
-                </div>
-                {idx < LOOP_STAGES.length - 1 && (
-                  <ArrowRight
-                    className={cn(
-                      "w-3 h-3 shrink-0 mx-1",
-                      isPast ? "text-emerald-500" : "text-[#D1D5DB]",
-                    )}
-                  />
+                {busyAction === "approve" ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  "Approve"
                 )}
-              </div>
-            );
-          })}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="px-10 border-b border-[#E5E7EB] flex gap-1 bg-white shrink-0">
-        {(
-          [
-            ["overview", "Overview"],
-            ["agents", "Agent Trace"],
-            ["dag", "Topology"],
-            ["tools", "Tool Calls"],
-            ["memory", "History"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={cn(
-              "px-5 py-3 text-[10px] font-bold uppercase tracking-[0.18em] border-b-2 transition-all",
-              tab === key
-                ? "border-[#111827] text-[#111827]"
-                : "border-transparent text-[#9CA3AF] hover:text-[#6B7280]",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* The three steps */}
+      <div className="relative">
+        <Step
+          index={1}
+          title="Incident Detection"
+          source={{ kind: "System", icon: Cpu }}
+          time={incident.detected_at}
+          tone="default"
+        >
+          <Line label="Issue Summary" value={summary} />
+          <Line
+            label="Detection Time"
+            value={formatDateTime(incident.detected_at)}
+          />
+          <Line
+            label="Pipeline ID"
+            value={
+              incident.pipeline_id
+                ? incident.pipeline_id
+                : `#${incident.id}`
+            }
+          />
+          <Line
+            label="Context"
+            value={`Severity ${incident.risk_tier}`}
+          />
+        </Step>
 
-      <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-        {tab === "overview" && (
-          <Overview incident={incident} similar={similar} />
-        )}
-        {tab === "agents" && <AgentTrace incident={incident} logs={logs} />}
-        {tab === "dag" && pipeline && (
-          <div>
-            <h3 className="text-[10px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold mb-4">
-              Topology · failed node highlighted
-            </h3>
-            <PipelineDAG
-              nodes={pipeline.dag}
-              failedNode={incident.failed_node}
-              orientation="horizontal"
+        {/* Connecting line drawn through `Step` itself */}
+        <ConnectorLine />
+
+        {/* STEP 2 — only if initial mail was actually sent */}
+        {incident.initial_email_sent_at ? (
+          <>
+            <Step
+              index={2}
+              title="Initial Notification"
+              source={{ kind: "Mailer", icon: Mail }}
+              time={incident.initial_email_sent_at}
+              tone="default"
+            >
+              <p className="text-xs text-[#6B7280] leading-relaxed">
+                1st notification sent by mail to{" "}
+                <b className="text-[#111827]">
+                  {incident.initial_email_role || "DataOps"}
+                </b>{" "}
+                &lt;
+                <span className="font-mono text-[11px] text-[#374151]">
+                  {incident.initial_email_recipient}
+                </span>
+                &gt; with possible solution.
+              </p>
+              <p className="text-[10px] text-[#9CA3AF] mt-1.5 font-mono">
+                Sent at {formatDateTime(incident.initial_email_sent_at)}
+              </p>
+            </Step>
+            <ConnectorLine />
+          </>
+        ) : (
+          <>
+            <PlaceholderStep
+              index={2}
+              title="Initial Notification"
+              note={
+                incident.status === "Detected" ||
+                incident.status === "Reasoning"
+                  ? "Pending — Mistral diagnosis must complete before mail goes out."
+                  : "No initial email was sent (SMTP may not be configured)."
+              }
             />
-          </div>
+            <ConnectorLine muted />
+          </>
         )}
-        {tab === "tools" && <ToolCalls incident={incident} />}
-        {tab === "memory" && <MemoryRetrieval similar={similar} />}
+
+        {/* STEP 3 — only if escalation fired */}
+        {incident.escalation_email_sent_at ? (
+          <Step
+            index={3}
+            title="Escalation"
+            source={{ kind: "System", icon: AlertTriangle }}
+            time={incident.escalation_email_sent_at}
+            tone="alert"
+          >
+            <Line label="Issue summary" value={summary} />
+            <Line
+              label="Detection time"
+              value={formatDateTime(incident.detected_at)}
+            />
+            <Line
+              label="Pipeline ID"
+              value={incident.pipeline_id || `#${incident.id}`}
+            />
+            <p className="text-xs text-[#6B7280] leading-relaxed mt-2">
+              Earlier mail sent on{" "}
+              <span className="font-mono text-[11px]">
+                {formatDateTime(incident.initial_email_sent_at)}
+              </span>{" "}
+              to{" "}
+              <b className="text-[#111827]">
+                {incident.initial_email_role || "DataOps"}
+              </b>
+              .
+              <br />
+              No response within SLA — escalation mail sent to{" "}
+              <b className="text-[#111827]">
+                {(incident.escalation_email_recipients || [])
+                  .map((r) => r.role)
+                  .filter((v, i, a) => a.indexOf(v) === i)
+                  .join(", ") || "senior roles"}
+              </b>
+              .
+            </p>
+            {!!(incident.escalation_email_recipients?.length) && (
+              <EscalationList
+                recipients={incident.escalation_email_recipients}
+              />
+            )}
+            <p className="text-[10px] text-[#9CA3AF] mt-2 font-mono">
+              Escalated at{" "}
+              {formatDateTime(incident.escalation_email_sent_at)}
+            </p>
+          </Step>
+        ) : (
+          <PlaceholderStep
+            index={3}
+            title="Escalation"
+            note={
+              incident.status === "Remediated"
+                ? "Not needed — incident was acknowledged before the escalation window expired."
+                : incident.initial_email_sent_at
+                  ? `Will fire automatically if no action by ${escalationWindow()} after the initial email.`
+                  : "Will fire once the initial mail has been sent and the SLA window expires."
+            }
+          />
+        )}
       </div>
     </div>
   );
 }
 
-function Overview({
-  incident,
-  similar,
+// ─────────────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────────────
+
+interface StepProps {
+  index: number;
+  title: string;
+  time?: string | null;
+  source: { kind: string; icon: any };
+  tone: "default" | "alert";
+  children: React.ReactNode;
+}
+
+function Step({ index, title, time, source, tone, children }: StepProps) {
+  const Icon = source.icon;
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      className={cn(
+        "relative bg-white border rounded-2xl p-5 shadow-sm",
+        tone === "alert"
+          ? "border-rose-200 bg-rose-50/30"
+          : "border-[#E5E7EB]",
+      )}
+    >
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
+            Step {index}
+          </div>
+          <h3 className="text-base font-bold text-[#111827] mt-1">
+            {title}
+          </h3>
+        </div>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md",
+            source.kind === "Mailer"
+              ? "bg-blue-50 text-blue-700"
+              : tone === "alert"
+                ? "bg-rose-50 text-rose-700"
+                : "bg-amber-50 text-amber-700",
+          )}
+        >
+          <Icon className="w-3 h-3" /> {source.kind}
+        </span>
+      </div>
+      <div className="space-y-1">{children}</div>
+    </motion.section>
+  );
+}
+
+function PlaceholderStep({
+  index,
+  title,
+  note,
 }: {
-  incident: Incident;
-  similar: MemoryEntry[];
+  index: number;
+  title: string;
+  note: string;
 }) {
   return (
-    <div className="space-y-10 max-w-4xl">
-      {/* Error log */}
-      <section>
-        <h5 className="text-[10px] uppercase font-bold tracking-[0.18em] text-[#9CA3AF] mb-3 flex items-center gap-2">
-          <Terminal className="w-3 h-3" />
-          Diagnostic Input Stream
-        </h5>
-        <div className="bg-[#0F172A] text-emerald-400 p-5 rounded font-mono text-[11px] leading-relaxed shadow-sm overflow-x-auto">
-          <span className="text-[#64748B]">[orchestrator] $</span> tail -f
-          pipeline.log
-          {"\n"}
-          <span className="text-amber-400">{incident.error_log}</span>
-        </div>
-      </section>
-
-      {incident.root_cause && (
-        <motion.section
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-8"
-        >
-          <div className="p-7 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg relative overflow-hidden grid-backdrop">
-            <div className="absolute top-0 right-0 p-6 opacity-5">
-              <Brain className="w-24 h-24 text-[#111827]" />
-            </div>
-            <h5 className="text-[10px] uppercase font-bold tracking-[0.18em] text-[#111827] mb-3 flex items-center gap-2">
-              <Brain className="w-3 h-3" />
-              Diagnosis Agent · Cognitive Output
-            </h5>
-            <p className="text-lg font-medium text-[#111827] mb-3 leading-tight">
-              {incident.root_cause}
-            </p>
-            <div className="hairline h-px w-full my-4" />
-            <p className="text-xs italic text-[#6B7280] leading-relaxed max-w-3xl">
-              “{incident.agent_thought}”
-            </p>
+    <section className="relative bg-white border border-dashed border-[#E5E7EB] rounded-2xl p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
+            Step {index}
           </div>
-
-          {incident.proposed_action && (
-            <div>
-              <h5 className="text-[10px] uppercase font-bold tracking-[0.18em] text-[#9CA3AF] mb-4 flex items-center gap-2">
-                <ActivityIcon className="w-3 h-3" />
-                Remediation Strategy ·{" "}
-                <span className="text-[#111827]">
-                  {incident.proposed_action}
-                </span>
-              </h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {(incident.remediation_plan || []).map((step, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 bg-white border border-[#E5E7EB] rounded flex items-center gap-4 hover:border-gray-300 transition-colors"
-                  >
-                    <div className="w-7 h-7 rounded border border-[#E5E7EB] bg-gray-50 flex items-center justify-center text-[10px] font-mono font-bold text-[#111827]">
-                      0{idx + 1}
-                    </div>
-                    <span className="text-xs font-medium text-[#4B5563]">
-                      {step}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {similar.length > 0 && (
-            <div>
-              <h5 className="text-[10px] uppercase font-bold tracking-[0.18em] text-[#9CA3AF] mb-3 flex items-center gap-2">
-                <Brain className="w-3 h-3" />
-                RAG · Top-{similar.length} Similar Past Incidents
-              </h5>
-              <div className="space-y-2">
-                {similar.map((s) => (
-                  <div
-                    key={s.id}
-                    className="p-3 bg-white border border-[#E5E7EB] rounded flex items-center justify-between gap-4"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold truncate">
-                        {s.title}
-                      </p>
-                      <p className="text-[11px] text-[#6B7280] truncate">
-                        {s.summary}
-                      </p>
-                    </div>
-                    <span className="font-mono text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded shrink-0">
-                      sim {(s.similarity || 0).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {incident.resolved_at && (
-            <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-emerald-100">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div>
-                <h6 className="text-[10px] font-bold text-emerald-800 uppercase tracking-[0.18em]">
-                  Pipeline Recovered
-                </h6>
-                <p className="text-xs font-medium text-emerald-700/70 mt-0.5">
-                  Verification successful at {formatTime(incident.resolved_at)}
-                </p>
-              </div>
-            </div>
-          )}
-        </motion.section>
-      )}
-    </div>
-  );
-}
-
-function AgentTrace({ incident, logs }: { incident: Incident; logs: any[] }) {
-  const filtered = logs.filter((l) => l.incident_id === incident.id);
-  return (
-    <div className="space-y-8">
-      <div>
-        <h5 className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF] mb-4">
-          Lifecycle Timeline
-        </h5>
-        <div className="relative pl-6 border-l border-[#E5E7EB] space-y-4">
-          {incident.timeline.map((tl, idx) => (
-            <div key={idx} className="relative">
-              <div className="absolute -left-[27px] w-3 h-3 rounded-full bg-[#111827] border-2 border-white" />
-              <div className="bg-white border border-[#E5E7EB] rounded p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#111827]">
-                    {tl.stage}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#9CA3AF]">
-                    {formatTime(tl.ts)} · {tl.agent}
-                  </span>
-                </div>
-                <p className="text-xs text-[#4B5563] mt-2">{tl.detail}</p>
-              </div>
-            </div>
-          ))}
+          <h3 className="text-sm font-bold text-[#9CA3AF] mt-1">
+            {title}
+          </h3>
         </div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] bg-[#F3F4F6] px-2 py-1 rounded-md">
+          Pending
+        </span>
       </div>
+      <p className="text-xs text-[#9CA3AF] mt-2 leading-relaxed">{note}</p>
+    </section>
+  );
+}
 
-      <div>
-        <h5 className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF] mb-3">
-          Streamed Agent Logs ({filtered.length})
-        </h5>
-        <div className="bg-white border border-[#E5E7EB] rounded-lg p-3 max-h-[420px]">
-          <LiveLogStream logs={filtered} compact />
-        </div>
-      </div>
+function ConnectorLine({ muted = false }: { muted?: boolean }) {
+  return (
+    <div className="flex justify-center py-2">
+      <div
+        className={cn(
+          "w-px h-6",
+          muted ? "bg-[#E5E7EB]" : "bg-[#D1D5DB]",
+        )}
+      />
     </div>
   );
 }
 
-function ToolCalls({ incident }: { incident: Incident }) {
-  if (!incident.tool_calls.length) {
-    return (
-      <p className="text-[#9CA3AF] italic text-sm">
-        No tool calls recorded yet — execution has not started.
-      </p>
-    );
-  }
+function Line({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-3">
-      <h5 className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF] mb-1">
-        Tool Calls · {incident.tool_calls.length} invocation
-        {incident.tool_calls.length === 1 ? "" : "s"}
-      </h5>
-      {incident.tool_calls.map((tc, i) => (
-        <ToolCallRow key={i} tc={tc} idx={i} />
-      ))}
+    <div className="text-xs text-[#374151] leading-relaxed">
+      <span className="text-[#6B7280]">{label}:</span>{" "}
+      <span className="text-[#111827]">{value}</span>
     </div>
   );
 }
 
-function ToolCallRow({ tc, idx }: { tc: any; idx: number }) {
-  const [open, setOpen] = useState(false);
-  const ok = tc.status === "success";
+function EscalationList({
+  recipients,
+}: {
+  recipients: EscalationRecipient[];
+}) {
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors text-left"
-      >
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[10px] text-[#9CA3AF] font-bold">
-            #{(idx + 1).toString().padStart(2, "0")}
-          </span>
-          <Wrench className="w-3.5 h-3.5 text-[#6B7280]" />
-          <span className="font-mono text-xs font-semibold">{tc.tool}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span
-            className={cn(
-              "text-[10px] font-bold uppercase tracking-[0.15em] px-2 py-0.5 rounded",
-              ok
-                ? "bg-emerald-50 text-emerald-700"
-                : tc.status === "failed"
-                  ? "bg-red-50 text-red-700"
-                  : "bg-amber-50 text-amber-700",
-            )}
-          >
-            {tc.status || "pending"}
-          </span>
-          {tc.duration_ms != null && (
-            <span className="text-[10px] font-mono text-[#9CA3AF] tabular-nums">
-              {tc.duration_ms}ms
-            </span>
-          )}
-          {open ? (
-            <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF]" />
-          ) : (
-            <ChevronRight className="w-3.5 h-3.5 text-[#9CA3AF]" />
-          )}
-        </div>
-      </button>
-      {open && (
-        <div className="px-5 py-4 border-t border-[#F3F4F6] bg-gray-50/50 grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div>
-            <p className="text-[9px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF] mb-2">
-              Args
-            </p>
-            <pre className="font-mono text-[11px] text-[#4B5563] bg-white border border-[#E5E7EB] rounded p-3 overflow-x-auto">
-              {JSON.stringify(tc.args, null, 2)}
-            </pre>
-          </div>
-          <div>
-            <p className="text-[9px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF] mb-2">
-              Result
-            </p>
-            <pre className="font-mono text-[11px] text-[#4B5563] bg-white border border-[#E5E7EB] rounded p-3 overflow-x-auto">
-              {JSON.stringify(tc.result || {}, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MemoryRetrieval({ similar }: { similar: MemoryEntry[] }) {
-  if (!similar.length) {
-    return (
-      <p className="text-[#9CA3AF] italic text-sm">
-        Diagnosis hasn't completed yet — RAG matches will appear here once it
-        does.
-      </p>
-    );
-  }
-  return (
-    <div className="space-y-3 max-w-4xl">
-      <h5 className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9CA3AF] mb-1">
-        Retrieved History · {similar.length} matches
-      </h5>
-      {similar.map((s) => (
+    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {recipients.map((r, i) => (
         <div
-          key={s.id}
-          className="bg-white border border-[#E5E7EB] rounded p-5"
+          key={`${r.email}-${i}`}
+          className="border border-[#E5E7EB] bg-white rounded-md px-2.5 py-1.5"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">{s.title}</p>
-              <p className="text-xs text-[#6B7280] mt-1.5 leading-relaxed">
-                {s.summary}
-              </p>
-              <div className="flex items-center gap-2 mt-3 flex-wrap">
-                {s.tags.slice(0, 5).map((t) => (
-                  <span key={t} className="tag-chip">
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <span className="font-mono text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                sim {(s.similarity || 0).toFixed(2)}
-              </span>
-              <span className="text-[9px] uppercase tracking-[0.18em] text-[#9CA3AF] font-bold">
-                {s.kind}
-              </span>
-            </div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
+            {r.role}
+          </div>
+          <div className="text-[11px] font-mono text-[#111827] truncate">
+            {r.email}
           </div>
         </div>
       ))}
@@ -716,117 +649,7 @@ function MemoryRetrieval({ similar }: { similar: MemoryEntry[] }) {
   );
 }
 
-function ZigZagIncidentFlow({ incident }: { incident: Incident }) {
-  const steps = [
-    {
-      id: "step-1",
-      title: "Incident Detection",
-      actor: "System",
-      color: "amber",
-      tag: "Agentic Intervention",
-      progress: 75,
-      description: `Issue Summary: High severity issue detected in ${incident.pipeline_name}.\nDetection Time: ${formatTime(incident.detected_at)}\nPipeline ID at connector: ${incident.pipeline_id}\nContext: Severity ${incident.risk_tier}`
-    },
-    {
-      id: "step-2",
-      title: "Initial Notification",
-      actor: "Mailer",
-      color: "red",
-      tag: "Higher Agentic Intervention",
-      progress: 85,
-      description: `1st notification sent by mail to Admin <admin@example.com> with possible solution.`
-    },
-    {
-      id: "step-3",
-      title: "Escalation",
-      actor: "System",
-      color: "dark-red",
-      tag: "High Alert Intervention",
-      progress: 95,
-      description: `Issue summary: High severity issue in ${incident.pipeline_name}.\nDetection time: ${formatTime(incident.detected_at)}\nPipeline ID at connector: ${incident.pipeline_id}\nEarlier mail sent on ${formatTime(incident.detected_at)} to Admin.\nNeed immediate attention with manual intervention and mail sent to Senior Data Engineer (1st 3 levels).`
-    },
-    {
-      id: "step-4",
-      title: "Resolution",
-      actor: "Engineer",
-      color: "green",
-      tag: "Human Intervention",
-      progress: 100,
-      description: `Issue resolved at ${incident.resolved_at ? formatTime(incident.resolved_at) : 'Pending'}`
-    }
-  ];
-
-  return (
-    <div className="flex-1 overflow-y-auto p-10 bg-gray-50 relative flex flex-col items-center">
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#111827 1px, transparent 1px), linear-gradient(90deg, #111827 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-      <div className="w-full max-w-xl z-10">
-        <div className="flex flex-col items-center">
-          {steps.map((step, i) => (
-            <div key={step.id} className="w-full flex flex-col items-center">
-              <div className="w-full relative group/step">
-                <FlowStepCard step={step} index={i} />
-              </div>
-              {/* Vertical Arrow */}
-              {i < steps.length - 1 && (
-                <div className="flex flex-col items-center my-3">
-                  <div className="w-px h-8 bg-[#9CA3AF]" />
-                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#9CA3AF]" />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FlowStepCard({ step, index }: { step: any; index: number }) {
-  const getColorClasses = (color: string) => {
-    switch (color) {
-      case 'amber':
-        return 'border-amber-200 bg-white shadow-amber-100/50';
-      case 'red':
-        return 'border-red-200 bg-white shadow-red-100/50';
-      case 'dark-red':
-        return 'border-red-300 bg-red-50/30 shadow-red-200/50';
-      case 'green':
-        return 'border-emerald-200 bg-white shadow-emerald-100/50';
-      default:
-        return 'border-gray-200 bg-white shadow-sm';
-    }
-  };
-
-  const badgeColorClasses = (color: string) => {
-    switch (color) {
-      case 'amber':
-        return 'border-amber-200 text-amber-700 bg-amber-50 border';
-      case 'red':
-        return 'border-red-200 text-red-700 bg-red-50 border';
-      case 'dark-red':
-        return 'border-red-300 text-red-800 bg-red-100 border';
-      case 'green':
-        return 'border-emerald-200 text-emerald-700 bg-emerald-50 border';
-      default:
-        return 'border-gray-200 text-gray-700 bg-gray-50 border';
-    }
-  };
-
-  return (
-    <div className={cn("p-5 border rounded-xl shadow-lg h-full flex flex-col transition-all hover:-translate-y-1", getColorClasses(step.color))}>
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
-          STEP {index + 1}
-        </span>
-        <span className={cn("text-[10px] px-2 py-1 rounded-full font-medium flex items-center gap-1.5", badgeColorClasses(step.color))}>
-          <UserCheck className="w-3 h-3" />
-          {step.actor}
-        </span>
-      </div>
-      <h4 className="text-sm font-bold text-[#111827] mb-3 leading-snug">{step.title}</h4>
-      <div className="space-y-2 flex-1 text-[#4B5563] text-[11px] leading-relaxed whitespace-pre-wrap">
-        {step.description}
-      </div>
-    </div>
-  );
+/** Just a label — the actual window is configured server-side. */
+function escalationWindow(): string {
+  return "the SLA window";
 }
