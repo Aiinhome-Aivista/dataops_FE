@@ -154,7 +154,14 @@ export function RunInvestigation({
               </span>
               <span className="font-mono text-xs text-[#6B7280]">
                 {run.started_at &&
-                  format(new Date(run.started_at), "dd/MM/yyyy HH:mm:ss")}
+                  format(
+                    new Date(
+                      run.started_at.endsWith("Z")
+                        ? run.started_at
+                        : `${run.started_at}Z`,
+                    ),
+                    "dd/MM/yyyy HH:mm:ss",
+                  )}
                 {run.duration_seconds != null &&
                   ` · ${run.duration_seconds.toFixed(1)}s`}
               </span>

@@ -36,6 +36,7 @@ import {
   X,
   Loader2,
   ChevronDown,
+  ArrowDown,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useStore } from "../hooks/useStore";
@@ -456,64 +457,91 @@ function TimelineView({
 
         {/* STEP 3 — only if escalation fired */}
         {incident.escalation_email_sent_at ? (
-          <Step
-            index={3}
-            title="Escalation"
-            source={{ kind: "System", icon: AlertTriangle }}
-            time={incident.escalation_email_sent_at}
-            tone="alert"
-          >
-            <Line label="Issue summary" value={summary} />
-            <Line
-              label="Detection time"
-              value={formatDateTime(incident.detected_at)}
-            />
-            <Line
-              label="Pipeline ID"
-              value={incident.pipeline_id || `#${incident.id}`}
-            />
-            <p className="text-xs text-[#6B7280] leading-relaxed mt-2">
-              Earlier mail sent on{" "}
-              <span className="font-mono text-[11px]">
-                {formatDateTime(incident.initial_email_sent_at)}
-              </span>{" "}
-              to{" "}
-              <b className="text-[#111827]">
-                {incident.initial_email_role || "DataOps"}
-              </b>
-              .
-              <br />
-              No response within SLA — escalation mail sent to{" "}
-              <b className="text-[#111827]">
-                {(incident.escalation_email_recipients || [])
-                  .map((r) => r.role)
-                  .filter((v, i, a) => a.indexOf(v) === i)
-                  .join(", ") || "senior roles"}
-              </b>
-              .
-            </p>
-            {!!(incident.escalation_email_recipients?.length) && (
-              <EscalationList
-                recipients={incident.escalation_email_recipients}
+          <>
+            <Step
+              index={3}
+              title="Escalation"
+              source={{ kind: "System", icon: AlertTriangle }}
+              time={incident.escalation_email_sent_at}
+              tone="alert"
+            >
+              <Line label="Issue summary" value={summary} />
+              <Line
+                label="Detection time"
+                value={formatDateTime(incident.detected_at)}
               />
-            )}
-            <p className="text-[10px] text-[#9CA3AF] mt-2 font-mono">
-              Escalated at{" "}
-              {formatDateTime(incident.escalation_email_sent_at)}
+              <Line
+                label="Pipeline ID"
+                value={incident.pipeline_id || `#${incident.id}`}
+              />
+              <p className="text-xs text-[#6B7280] leading-relaxed mt-2">
+                Earlier mail sent on{" "}
+                <span className="font-mono text-[11px]">
+                  {formatDateTime(incident.initial_email_sent_at)}
+                </span>{" "}
+                to{" "}
+                <b className="text-[#111827]">
+                  {incident.initial_email_recipient?.split("@")[0] ||
+                    incident.initial_email_role ||
+                    "DataOps"}
+                </b>{" "}
+                need immediate attention with{" "}
+                <b className="text-[#111827]">solution</b> and mail sent to{" "}
+                <b className="text-[#111827]">
+                  {(incident.escalation_email_recipients || [])
+                    .map((r) => r.role)
+                    .filter((v, i, a) => a.indexOf(v) === i)
+                    .join(", ") || "senior data engineer"}
+                </b>
+                .
+              </p>
+              {!!incident.escalation_email_recipients?.length && (
+                <EscalationList
+                  recipients={incident.escalation_email_recipients}
+                />
+              )}
+              <p className="text-[10px] text-[#9CA3AF] mt-2 font-mono">
+                Escalated at{" "}
+                {formatDateTime(incident.escalation_email_sent_at)}
+              </p>
+            </Step>
+            {incident.resolved_at && <ConnectorLine />}
+          </>
+        ) : (
+          incident.status !== "Remediated" &&
+          !incident.resolved_at && (
+            <>
+              <PlaceholderStep
+                index={3}
+                title="Escalation"
+                note={
+                  incident.initial_email_sent_at
+                    ? `Will fire automatically if no action by ${escalationWindow()} after the initial email.`
+                    : "Will fire once the initial mail has been sent and the SLA window expires."
+                }
+              />
+              {incident.resolved_at && <ConnectorLine muted />}
+            </>
+          )
+        )}
+
+        {/* STEP 4/3 — Resolved */}
+        {incident.resolved_at && (
+          <Step
+            index={incident.escalation_email_sent_at ? 4 : 3}
+            title="Issue Resolved"
+            source={{ kind: "System", icon: Check }}
+            time={incident.resolved_at}
+            tone="default"
+          >
+            <p className="text-xs text-[#6B7280] leading-relaxed">
+              Issue was resolved at{" "}
+              <span className="font-mono text-[11px] font-bold text-[#111827]">
+                {formatDateTime(incident.resolved_at)}
+              </span>
+              .
             </p>
           </Step>
-        ) : (
-          <PlaceholderStep
-            index={3}
-            title="Escalation"
-            note={
-              incident.status === "Remediated"
-                ? "Not needed — incident was acknowledged before the escalation window expired."
-                : incident.initial_email_sent_at
-                  ? `Will fire automatically if no action by ${escalationWindow()} after the initial email.`
-                  : "Will fire once the initial mail has been sent and the SLA window expires."
-            }
-          />
         )}
       </div>
     </div>
@@ -605,12 +633,11 @@ function PlaceholderStep({
 
 function ConnectorLine({ muted = false }: { muted?: boolean }) {
   return (
-    <div className="flex justify-center py-2">
-      <div
-        className={cn(
-          "w-px h-6",
-          muted ? "bg-[#E5E7EB]" : "bg-[#D1D5DB]",
-        )}
+    <div className="flex justify-center py-1.5">
+      <ArrowDown
+        size={24}
+        strokeWidth={3}
+        className={cn(muted ? "text-[#D1D5DB]" : "text-[#9CA3AF]")}
       />
     </div>
   );
