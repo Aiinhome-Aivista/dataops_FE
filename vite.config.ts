@@ -14,7 +14,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://122.163.121.176:3004",
+        target: "http://122.163.121.176:3006",
         changeOrigin: true,
         agent: new http.Agent({ keepAlive: true, keepAliveMsecs: 3000 }),
         configure: (proxy) => {
@@ -25,7 +25,7 @@ export default defineConfig({
         },
       },
       "/ws": {
-        target: "ws://122.163.121.176:3004",
+        target: "ws://122.163.121.176:3006",
         ws: true,
         agent: new http.Agent({ keepAlive: true, keepAliveMsecs: 3000 }),
         configure: (proxy) => {
