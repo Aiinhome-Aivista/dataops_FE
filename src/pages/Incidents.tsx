@@ -36,7 +36,6 @@ import {
   CheckCircle2,
   UserCheck,
   X,
-  Loader2,
   ChevronDown,
   ArrowDown,
 } from "lucide-react";
@@ -89,7 +88,7 @@ function bestSummary(i: Incident): string {
 // ─────────────────────────────────────────────────────────────────────
 
 export function IncidentsPage() {
-  const { state, approveIncident, rejectIncident } = useStore();
+  const { state } = useStore();
   const { id: routeId } = useParams();
   const navigate = useNavigate();
 
@@ -98,9 +97,7 @@ export function IncidentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(
     routeId ?? null,
   );
-  const [busyAction, setBusyAction] = useState<"approve" | "reject" | null>(
-    null,
-  );
+
 
   // Filtered list (memoised — recomputes only when filter/search/data change)
   const filtered = useMemo(() => {
@@ -154,25 +151,7 @@ export function IncidentsPage() {
     [state.incidents, selectedId],
   );
 
-  // Action handlers
-  const handleApprove = async () => {
-    if (!selected) return;
-    setBusyAction("approve");
-    try {
-      await approveIncident(String(selected.id));
-    } finally {
-      setBusyAction(null);
-    }
-  };
-  const handleReject = async () => {
-    if (!selected) return;
-    setBusyAction("reject");
-    try {
-      await rejectIncident(String(selected.id));
-    } finally {
-      setBusyAction(null);
-    }
-  };
+
 
   return (
     <div className="flex-1 flex min-h-0 bg-[#F9FAFB]">
@@ -299,9 +278,6 @@ export function IncidentsPage() {
         ) : (
           <TimelineView
             incident={selected}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            busyAction={busyAction}
           />
         )}
       </main>
@@ -315,19 +291,12 @@ export function IncidentsPage() {
 
 interface TimelineViewProps {
   incident: Incident;
-  onApprove: () => Promise<void>;
-  onReject: () => Promise<void>;
-  busyAction: "approve" | "reject" | null;
 }
 
 function TimelineView({
   incident,
-  onApprove,
-  onReject,
-  busyAction,
 }: TimelineViewProps) {
   const summary = bestSummary(incident);
-  const showApproval = incident.status === "Awaiting Approval";
   const isResolved =
     (incident.resolved || "no").toLowerCase() === "yes" ||
     incident.status === "Remediated" ||
@@ -375,32 +344,7 @@ function TimelineView({
               )}
             </div>
           </div>
-          {showApproval && (
-            <div className="flex gap-2">
-              <button
-                onClick={onReject}
-                disabled={busyAction !== null}
-                className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[#6B7280] hover:text-rose-600 border border-[#E5E7EB] hover:border-rose-200 rounded-lg disabled:opacity-50 transition-colors"
-              >
-                {busyAction === "reject" ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  "Reject"
-                )}
-              </button>
-              <button
-                onClick={onApprove}
-                disabled={busyAction !== null}
-                className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-[#111827] hover:bg-black text-white rounded-lg shadow-sm disabled:opacity-50 transition-colors"
-              >
-                {busyAction === "approve" ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  "Approve"
-                )}
-              </button>
-            </div>
-          )}
+
         </div>
       </div>
 
