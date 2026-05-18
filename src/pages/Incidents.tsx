@@ -38,11 +38,19 @@ import {
   X,
   ChevronDown,
   ArrowDown,
+  Clock,
+  Eye,
+  RefreshCw,
+  Play,
+  Zap,
+  Users,
+  Activity,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useStore } from "../hooks/useStore";
 import { cn, formatDateTime, timeAgo } from "../lib/utils";
-import type { Incident, EscalationRecipient } from "../types";
+import { api } from "../services/api";
+import type { Incident, EscalationRecipient, IncidentEvent } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
@@ -55,21 +63,17 @@ const OPEN_STATUSES = new Set([
   "Reasoning",
   "Planning",
   "Awaiting Approval",
-  "Processing",        // NEW — acknowledged but not yet resolved
+  "Processing", // NEW — acknowledged but not yet resolved
   "Executing",
   "Evaluating",
 ]);
 
 function isOpen(i: Incident): boolean {
-  return OPEN_STATUSES.has(i.status);
+  return i.is_active !== false;
 }
 
 function isClosed(i: Incident): boolean {
-  return (
-    i.status === "Remediated" ||
-    i.status === "Escalated" ||
-    i.status === "Failed"
-  );
+  return i.is_active === false;
 }
 
 /** Pull the most useful one-line summary from whatever the backend filled in. */
@@ -94,10 +98,7 @@ export function IncidentsPage() {
 
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(
-    routeId ?? null,
-  );
-
+  const [selectedId, setSelectedId] = useState<string | null>(routeId ?? null);
 
   // Filtered list (memoised — recomputes only when filter/search/data change)
   const filtered = useMemo(() => {
@@ -118,8 +119,7 @@ export function IncidentsPage() {
     // Newest first
     list.sort(
       (a, b) =>
-        new Date(b.detected_at).getTime() -
-        new Date(a.detected_at).getTime(),
+        new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime(),
     );
     return list;
   }, [state.incidents, filter, searchQuery]);
@@ -146,12 +146,11 @@ export function IncidentsPage() {
 
   const selected = useMemo(
     () =>
-      (state.incidents || []).find((i) => String(i.id) === String(selectedId)) ||
-      null,
+      (state.incidents || []).find(
+        (i) => String(i.id) === String(selectedId),
+      ) || null,
     [state.incidents, selectedId],
   );
-
-
 
   return (
     <div className="flex-1 flex min-h-0 bg-[#F9FAFB]">
@@ -208,9 +207,7 @@ export function IncidentsPage() {
                       onClick={() => setSelectedId(String(inc.id))}
                       className={cn(
                         "w-full text-left p-4 transition-colors relative",
-                        active
-                          ? "bg-[#F3F4F6]"
-                          : "hover:bg-[#F9FAFB]",
+                        active ? "bg-[#F3F4F6]" : "hover:bg-[#F9FAFB]",
                       )}
                     >
                       {active && (
@@ -276,9 +273,7 @@ export function IncidentsPage() {
             Select an incident on the left to inspect its timeline.
           </div>
         ) : (
-          <TimelineView
-            incident={selected}
-          />
+          <TimelineView incident={selected} />
         )}
       </main>
     </div>
@@ -293,9 +288,7 @@ interface TimelineViewProps {
   incident: Incident;
 }
 
-function TimelineView({
-  incident,
-}: TimelineViewProps) {
+function TimelineView({ incident }: TimelineViewProps) {
   const summary = bestSummary(incident);
   const isResolved =
     (incident.resolved || "no").toLowerCase() === "yes" ||
@@ -344,7 +337,6 @@ function TimelineView({
               )}
             </div>
           </div>
-
         </div>
       </div>
 
@@ -458,13 +450,12 @@ function TimelineView({
                         &gt; with possible solution.
                       </p>
                       <p className="text-[10px] text-[#9CA3AF] mt-1.5 font-mono">
-                        Sent at{" "}
-                        {formatDateTime(incident.initial_email_sent_at)}
+                        Sent at {formatDateTime(incident.initial_email_sent_at)}
                       </p>
                       {!incident.acknowledged_at && (
                         <p className="text-[10px] text-amber-700 mt-1.5">
-                          Waiting for recipient to click the <b>Check</b>{" "}
-                          button in the email…
+                          Waiting for recipient to click the <b>Check</b> button
+                          in the email…
                         </p>
                       )}
                     </Step>
@@ -618,6 +609,9 @@ function TimelineView({
           });
         })()}
       </div>
+
+      {/* Journey Timeline */}
+      <JourneyTimeline incidentId={incident.id} />
     </div>
   );
 }
@@ -656,9 +650,7 @@ function Step({ index, title, source, tone, children }: StepProps) {
           <div className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
             Step {index}
           </div>
-          <h3 className="text-base font-bold text-[#111827] mt-1">
-            {title}
-          </h3>
+          <h3 className="text-base font-bold text-[#111827] mt-1">{title}</h3>
         </div>
         <span
           className={cn(
@@ -698,9 +690,7 @@ function PlaceholderStep({
           <div className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
             Step {index}
           </div>
-          <h3 className="text-sm font-bold text-[#9CA3AF] mt-1">
-            {title}
-          </h3>
+          <h3 className="text-sm font-bold text-[#9CA3AF] mt-1">{title}</h3>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] bg-[#F3F4F6] px-2 py-1 rounded-md">
           Pending
@@ -732,11 +722,7 @@ function Line({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EscalationList({
-  recipients,
-}: {
-  recipients: EscalationRecipient[];
-}) {
+function EscalationList({ recipients }: { recipients: EscalationRecipient[] }) {
   return (
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
       {recipients.map((r, i) => (
@@ -759,4 +745,239 @@ function EscalationList({
 /** Just a label — the actual window is configured server-side. */
 function escalationWindow(): string {
   return "the SLA window";
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// NEW: Incident Lifecycle Journey Timeline Component
+// ─────────────────────────────────────────────────────────────────────
+
+interface JourneyTimelineProps {
+  incidentId: string | number;
+}
+
+function JourneyTimeline({ incidentId }: JourneyTimelineProps) {
+  const [events, setEvents] = useState<IncidentEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { state } = useStore();
+
+  const fetchEvents = async () => {
+    try {
+      const data = await api.incidentEvents(incidentId);
+      setEvents(data);
+    } catch (err) {
+      console.warn("Failed to fetch incident events:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    fetchEvents();
+    // Poll events every 15s to capture automatic escalations as they occur
+    const t = setInterval(fetchEvents, 15000);
+    return () => clearInterval(t);
+  }, [incidentId]);
+
+  // Also refetch if the global store's incident status changes (e.g. approved / rejected)
+  const currentIncidentStatus = useMemo(() => {
+    const inc = state.incidents.find(
+      (i) => String(i.id) === String(incidentId),
+    );
+    return inc?.status;
+  }, [state.incidents, incidentId]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [currentIncidentStatus]);
+
+  if (loading && events.length === 0) {
+    return (
+      <div className="mt-8 p-6 bg-white border border-[#E5E7EB] rounded-2xl shadow-sm text-center">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900 mx-auto"></div>
+        <p className="text-xs text-[#6B7280] mt-2">
+          Loading incident event journey...
+        </p>
+      </div>
+    );
+  }
+
+  if (events.length === 0) {
+    return null; // Don't render anything if no events exist yet
+  }
+
+  // Map each event type to a gorgeous tone, title, and Lucide icon
+  const getEventConfig = (type: string) => {
+    switch (type) {
+      case "PIPELINE_FAILED":
+        return {
+          title: "Pipeline Failure Detected",
+          icon: ShieldAlert,
+          bg: "bg-rose-50 border-rose-200 text-rose-700",
+          iconBg: "bg-rose-100 text-rose-700",
+        };
+      case "INITIAL_MAIL_SENT":
+        return {
+          title: "Initial Alert Dispatched (L1)",
+          icon: Mail,
+          bg: "bg-blue-50/50 border-blue-200 text-blue-700",
+          iconBg: "bg-blue-100 text-blue-700",
+        };
+      case "ESCALATION_CHECK":
+        return {
+          title: "SLA Check Performed",
+          icon: Clock,
+          bg: "bg-slate-50 border-slate-200 text-slate-700",
+          iconBg: "bg-slate-100 text-slate-700",
+        };
+      case "ESCALATION_MAIL_SENT":
+        return {
+          title: "Incident Escalated (L1+L2+L3)",
+          icon: AlertTriangle,
+          bg: "bg-amber-50 border-amber-200 text-amber-700",
+          iconBg: "bg-amber-100 text-amber-700",
+        };
+      case "RERUN_DETECTED":
+        return {
+          title: "Pipeline Rerun Detected",
+          icon: RefreshCw,
+          bg: "bg-violet-50 border-violet-200 text-violet-700",
+          iconBg: "bg-violet-100 text-violet-700",
+        };
+      case "RERUN_SUCCEEDED":
+        return {
+          title: "Rerun Succeeded",
+          icon: CheckCircle2,
+          bg: "bg-emerald-50 border-emerald-200 text-emerald-700",
+          iconBg: "bg-emerald-100 text-emerald-700",
+        };
+      case "RERUN_FAILED":
+        return {
+          title: "Rerun Failed",
+          icon: X,
+          bg: "bg-rose-50 border-rose-200 text-rose-700",
+          iconBg: "bg-rose-100 text-rose-700",
+        };
+      case "RESOLVED":
+        return {
+          title: "Incident Resolved",
+          icon: Check,
+          bg: "bg-emerald-50 border-emerald-200 text-emerald-700",
+          iconBg: "bg-emerald-100 text-emerald-700",
+        };
+      default:
+        return {
+          title: type.replace(/_/g, " "),
+          icon: Activity,
+          bg: "bg-gray-50 border-gray-200 text-gray-700",
+          iconBg: "bg-gray-100 text-gray-700",
+        };
+    }
+  };
+
+  return (
+    <div className="mt-10 border border-[#E5E7EB] bg-white rounded-2xl p-6 shadow-sm">
+      <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4 mb-6">
+        <div>
+          <h3 className="text-base font-bold text-[#111827]">
+            Incident Lifecycle Journey
+          </h3>
+          <p className="text-xs text-[#6B7280]">
+            Autonomous incident detection, check intervals, and team escalation
+            logs
+          </p>
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded bg-slate-100 text-slate-700">
+          JOURNEY LOG
+        </span>
+      </div>
+
+      <div className="relative border-l-2 border-[#E5E7EB] ml-4 pl-6 space-y-8">
+        {events.map((evt, idx) => {
+          const cfg = getEventConfig(evt.event_type);
+          const Icon = cfg.icon;
+
+          return (
+            <motion.div
+              key={evt.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2, delay: idx * 0.05 }}
+              className="relative"
+            >
+              {/* Timeline marker icon */}
+              <span
+                className={cn(
+                  "absolute -left-[37px] top-0.5 rounded-full p-1.5 border-2 border-white shadow-sm flex items-center justify-center",
+                  cfg.iconBg,
+                )}
+              >
+                <Icon className="w-3.5 h-3.5" />
+              </span>
+
+              {/* Event Card */}
+              <div className={cn("border rounded-xl p-4 shadow-sm bg-white")}>
+                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-[#111827]">
+                      {cfg.title}
+                    </span>
+                    {evt.escalation_level && (
+                      <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">
+                        Level: {evt.escalation_level}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-[#9CA3AF] font-mono">
+                    {formatDateTime(evt.created_at)}
+                  </span>
+                </div>
+
+                <p className="text-xs text-[#4B5563] leading-relaxed">
+                  {evt.details}
+                </p>
+
+                {/* Recipient details display */}
+                {Array.isArray(evt.recipients) && evt.recipients.length > 0 && (
+                  <div className="mt-3 bg-gray-50 border border-gray-100 rounded-lg p-2.5">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-[#9CA3AF] mb-1.5 flex items-center gap-1">
+                      <Users className="w-3 h-3" /> Notified Recipients (
+                      {evt.recipients.length})
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {evt.recipients.map((r, i) => (
+                        <div
+                          key={i}
+                          className="bg-white border border-gray-200 rounded px-2 py-1 flex items-center justify-between"
+                        >
+                          <div className="truncate pr-2">
+                            <div className="text-[10px] font-semibold text-[#111827] truncate">
+                              {r.email}
+                            </div>
+                            <div className="text-[9px] text-[#6B7280] font-medium">
+                              {r.role}
+                            </div>
+                          </div>
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {evt.related_run_id && (
+                  <div className="mt-2 text-[10px] text-[#6B7280] font-medium">
+                    Related Run ID:{" "}
+                    <span className="font-mono text-gray-900 bg-gray-100 px-1 py-0.5 rounded">
+                      #{evt.related_run_id}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

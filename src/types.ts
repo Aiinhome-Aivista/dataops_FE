@@ -1,38 +1,38 @@
-export type RiskTier = 'Low' | 'Medium' | 'High';
+export type RiskTier = "Low" | "Medium" | "High";
 
 export type IncidentStatus =
-  | 'Detected'
-  | 'Reasoning'
-  | 'Planning'
-  | 'Awaiting Approval'
-  | 'Processing'         // NEW — set when DataOps Eng clicks Check button in email
-  | 'Executing'
-  | 'Evaluating'
-  | 'Remediated'
-  | 'Failed'
-  | 'Escalated';
+  | "Detected"
+  | "Reasoning"
+  | "Planning"
+  | "Awaiting Approval"
+  | "Processing" // NEW — set when DataOps Eng clicks Check button in email
+  | "Executing"
+  | "Evaluating"
+  | "Remediated"
+  | "Failed"
+  | "Escalated";
 
-export type PipelineStatus = 'healthy' | 'unhealthy' | 'degraded' | 'paused';
+export type PipelineStatus = "healthy" | "unhealthy" | "degraded" | "paused";
 
 export type AgentRoleId =
-  | 'orchestrator'
-  | 'monitoring'
-  | 'diagnosis'
-  | 'remediation'
-  | 'optimization'
-  | 'learning';
+  | "orchestrator"
+  | "monitoring"
+  | "diagnosis"
+  | "remediation"
+  | "optimization"
+  | "learning";
 
 export type ConnectorTypeId =
-  | 'Orchestrator'
-  | 'Monitoring'
-  | 'Logs'
-  | 'Ticketing'
-  | 'Communication'
-  | 'Git'
-  | 'Runtime'
-  | 'Cloud';
+  | "Orchestrator"
+  | "Monitoring"
+  | "Logs"
+  | "Ticketing"
+  | "Communication"
+  | "Git"
+  | "Runtime"
+  | "Cloud";
 
-export type NodeTypeId = 'sensor' | 'ingest' | 'transform' | 'load';
+export type NodeTypeId = "sensor" | "ingest" | "transform" | "load";
 
 export interface DAGNode {
   id: string;
@@ -53,7 +53,7 @@ export interface PipelineRun {
   id: string;
   pipeline_id: string;
   external_run_id: string;
-  status: 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'RUNNING' | 'QUEUED' | string;
+  status: "SUCCEEDED" | "FAILED" | "CANCELLED" | "RUNNING" | "QUEUED" | string;
   started_at: string;
   duration_seconds: number | null;
   analysis?: any;
@@ -100,6 +100,17 @@ export interface EscalationRecipient {
   role: string;
 }
 
+export interface IncidentEvent {
+  id: number;
+  incident_id: number;
+  event_type: string;
+  escalation_level?: string | null;
+  recipients?: EscalationRecipient[] | null;
+  related_run_id?: number | null;
+  details?: string | null;
+  created_at: string;
+}
+
 export interface Incident {
   id: string;
   pipeline_id: string;
@@ -129,8 +140,14 @@ export interface Incident {
   // ─── NEW: Check-button acknowledgement + explicit user resolution ──
   acknowledged_at?: string | null;
   acknowledged_by?: string | null;
-  resolved?: 'yes' | 'no' | string | null;
+  resolved?: "yes" | "no" | string | null;
   resolved_time?: string | null;
+
+  // ─── Pipeline-level escalation tracking ──
+  is_active?: boolean;
+  escalation_count?: number;
+  last_escalation_at?: string | null;
+  last_known_run_count?: number;
 }
 
 export interface AgentStatus {
@@ -138,7 +155,7 @@ export interface AgentStatus {
   name: string;
   description: string;
   color: string;
-  status: 'idle' | 'thinking' | 'acting' | 'error';
+  status: "idle" | "thinking" | "acting" | "error";
   last_action: string;
   tasks_completed: number;
 }
@@ -147,7 +164,7 @@ export interface Connector {
   id: string;
   name: string;
   type: ConnectorTypeId | string;
-  status: 'CONNECTED' | 'ERROR' | 'PENDING' | 'NOT_CONFIGURED' | string;
+  status: "CONNECTED" | "ERROR" | "PENDING" | "NOT_CONFIGURED" | string;
   last_synced_at: string | null;
   last_error?: string | null;
   description?: string;
@@ -161,7 +178,7 @@ export interface ConnectorDetail extends Connector {
 export interface ConnectorTypeField {
   name: string;
   label: string;
-  kind: 'text' | 'password' | 'url' | 'select' | 'textarea' | 'number';
+  kind: "text" | "password" | "url" | "select" | "textarea" | "number";
   placeholder?: string;
   required?: boolean;
   secret?: boolean;
@@ -181,7 +198,7 @@ export interface ConnectorType {
 
 export interface MemoryEntry {
   id: string;
-  kind: 'episodic' | 'semantic' | 'procedural';
+  kind: "episodic" | "semantic" | "procedural";
   title: string;
   summary: string;
   payload: Record<string, any>;
@@ -196,7 +213,7 @@ export interface LogEntry {
   id: string;
   time: string;
   msg: string;
-  type: 'info' | 'warn' | 'error' | 'agent' | 'tool';
+  type: "info" | "warn" | "error" | "agent" | "tool";
   agent_role?: AgentRoleId | null;
   incident_id?: string | null;
 }
@@ -235,16 +252,16 @@ export interface Recommendation {
   title: string;
   detail: string;
   savings: string;
-  risk: 'Low' | 'Medium' | 'High';
+  risk: "Low" | "Medium" | "High";
   created_at: string;
-  status: 'open' | 'accepted' | 'dismissed';
+  status: "open" | "accepted" | "dismissed";
 }
 
 export interface ToolSpec {
   name: string;
   description: string;
   args_schema: Record<string, string>;
-  risk: 'low' | 'medium' | 'high';
+  risk: "low" | "medium" | "high";
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -260,10 +277,17 @@ export interface Runbook {
   category: string;
   description: string;
   source: string;
-  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'AI GENERATED' | 'PROCESSING' | 'FAILED' | string;
+  status:
+    | "ACTIVE"
+    | "DRAFT"
+    | "ARCHIVED"
+    | "AI GENERATED"
+    | "PROCESSING"
+    | "FAILED"
+    | string;
   last_updated?: string;
   last_updated_by?: string;
-  risk_level: 'Low' | 'Medium' | 'High';
+  risk_level: "Low" | "Medium" | "High";
   ai_usage_enabled?: boolean;
   rag_enabled: boolean;
   ai_approved?: boolean;
@@ -359,13 +383,13 @@ export interface SystemMetrics {
 // ─────────────────────────────────────────────────────────────────────
 // LLM-suggested metadata returned by POST /runbooks/analyze
 // ─────────────────────────────────────────────────────────────────────
-export type RunbookCategory = 'ADF' | 'Databricks' | 'Git' | 'AWS Glue';
+export type RunbookCategory = "ADF" | "Databricks" | "Git" | "AWS Glue";
 
 export const RUNBOOK_CATEGORIES: RunbookCategory[] = [
-  'ADF',
-  'Databricks',
-  'Git',
-  'AWS Glue',
+  "ADF",
+  "Databricks",
+  "Git",
+  "AWS Glue",
 ];
 
 export interface RunbookSuggestion {
@@ -373,7 +397,7 @@ export interface RunbookSuggestion {
   category: RunbookCategory | string;
   description: string;
   steps: string[];
-  risk_level: 'Low' | 'Medium' | 'High';
+  risk_level: "Low" | "Medium" | "High";
   tags: string[];
   llm_used: boolean;
   model?: string | null;
