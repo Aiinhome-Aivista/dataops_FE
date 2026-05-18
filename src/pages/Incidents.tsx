@@ -28,113 +28,244 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Search,
-  ShieldAlert,
   Mail,
   AlertTriangle,
   Cpu,
-  Check,
   CheckCircle2,
-  UserCheck,
   X,
-  ChevronDown,
   ArrowDown,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useStore } from "../hooks/useStore";
 import { cn, formatDateTime, timeAgo } from "../lib/utils";
-import type { Incident, EscalationRecipient } from "../types";
+import { auth } from "../services/api";
 
 // ─────────────────────────────────────────────────────────────────────
-// Helpers
+// Types & Interfaces
 // ─────────────────────────────────────────────────────────────────────
 
 type FilterTab = "open" | "all" | "closed";
 
-const OPEN_STATUSES = new Set([
-  "Detected",
-  "Reasoning",
-  "Planning",
-  "Awaiting Approval",
-  "Processing",        // NEW — acknowledged but not yet resolved
-  "Executing",
-  "Evaluating",
-]);
-
-function isOpen(i: Incident): boolean {
-  return OPEN_STATUSES.has(i.status);
+interface IncidentListItem {
+  pipeline_id: number;
+  pipeline_name: string;
+  run_id: number;
+  latest_status: string;
+  is_escalated: boolean;
+  last_activity: string;
+  cycle_count: number;
+  pipeline_status: string;
+  incident_status: string | null;
+  resolved_at: string | null;
 }
 
-function isClosed(i: Incident): boolean {
-  return (
-    i.status === "Remediated" ||
-    i.status === "Escalated" ||
-    i.status === "Failed"
-  );
+interface Step1Detail {
+  step: number;
+  title: string;
+  pipeline_name: string;
+  summary: string;
+  detection_time: string;
 }
 
-/** Pull the most useful one-line summary from whatever the backend filled in. */
-function bestSummary(i: Incident): string {
-  return (
-    i.agent_thought ||
-    i.proposed_action ||
-    i.root_cause ||
-    i.error_log?.split("\n")[0] ||
-    "Awaiting diagnosis…"
-  );
+interface Recipient {
+  email: string;
+  role: string;
+  status: string;
+}
+
+interface NotificationCycle {
+  cycle_number: number;
+  sent_at: string;
+  recipients: Recipient[];
+}
+
+interface Step2Detail {
+  step: number;
+  title: string;
+  cycles: NotificationCycle[];
+}
+
+interface Step3Detail {
+  step: number;
+  title: string;
+  status: string;
+  new_run_found: boolean;
+  cycles: NotificationCycle[];
+}
+
+interface Step4Detail {
+  step: number;
+  title: string;
+  pipeline_status: string;
+  incident_status: string | null;
+  resolved_at: string | null;
+}
+
+interface IncidentDetail {
+  pipeline_id: number;
+  pipeline_name: string;
+  run_id: number;
+  is_escalated: boolean;
+  step1: Step1Detail;
+  step2: Step2Detail;
+  step3: Step3Detail;
+  step4: Step4Detail;
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Component
+// Helper Functions
+// ─────────────────────────────────────────────────────────────────────
+
+function isListItemOpen(item: IncidentListItem): boolean {
+  return !item.resolved_at && item.pipeline_status !== "SUCCEEDED";
+}
+
+function isListItemClosed(item: IncidentListItem): boolean {
+  return !!item.resolved_at || item.pipeline_status === "SUCCEEDED";
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Main Component
 // ─────────────────────────────────────────────────────────────────────
 
 export function IncidentsPage() {
-  const { state } = useStore();
   const { id: routeId } = useParams();
   const navigate = useNavigate();
 
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(
-    routeId ?? null,
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(routeId ?? null);
 
+  const [incidents, setIncidents] = useState<IncidentListItem[]>([]);
+  const [selectedDetail, setSelectedDetail] = useState<IncidentDetail | null>(null);
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [errorList, setErrorList] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
-  // Filtered list (memoised — recomputes only when filter/search/data change)
+  // Fetch the incidents list from REST API
+  const fetchList = async () => {
+    setLoadingList(true);
+    setErrorList(null);
+    try {
+      const headers: Record<string, string> = {};
+      const token = auth.getToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch("/api/v1/timeline/incidents", { headers });
+      if (response.status === 401) {
+        auth.clearToken();
+        navigate("/login");
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setIncidents(data);
+    } catch (err: any) {
+      setErrorList(err.message || "An error occurred while fetching the incidents list.");
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchList();
+  }, []);
+
+  // Fetch detail whenever selectedId changes
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedDetail(null);
+      return;
+    }
+    let active = true;
+    async function fetchDetail() {
+      setLoadingDetail(true);
+      setErrorDetail(null);
+      try {
+        const headers: Record<string, string> = {};
+        const token = auth.getToken();
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const response = await fetch(`/api/v1/timeline/incidents/${selectedId}`, { headers });
+        if (response.status === 401) {
+          auth.clearToken();
+          navigate("/login");
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`Failed to fetch timeline details: ${response.statusText}`);
+        }
+        const data = await response.json();
+        if (active) {
+          setSelectedDetail(data);
+        }
+      } catch (err: any) {
+        if (active) {
+          setErrorDetail(err.message || "An error occurred while fetching timeline details.");
+          setSelectedDetail(null);
+        }
+      } finally {
+        if (active) {
+          setLoadingDetail(false);
+        }
+      }
+    }
+    fetchDetail();
+    return () => {
+      active = false;
+    };
+  }, [selectedId]);
+
+  // Keep state sync'd when routeId changes externally
+  useEffect(() => {
+    if (routeId) {
+      setSelectedId(routeId);
+    }
+  }, [routeId]);
+
+  // Filtered list (memoized — recomputes only when filter/search/incidents change)
   const filtered = useMemo(() => {
-    let list = [...(state.incidents || [])];
-    if (filter === "open") list = list.filter(isOpen);
-    if (filter === "closed") list = list.filter(isClosed);
+    let list = [...incidents];
+    if (filter === "open") list = list.filter(isListItemOpen);
+    if (filter === "closed") list = list.filter(isListItemClosed);
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (i) =>
           i.pipeline_name?.toLowerCase().includes(q) ||
-          String(i.id).includes(q) ||
-          bestSummary(i).toLowerCase().includes(q),
+          String(i.pipeline_id).includes(q) ||
+          String(i.run_id).includes(q) ||
+          i.incident_status?.toLowerCase().includes(q) ||
+          i.pipeline_status?.toLowerCase().includes(q),
       );
     }
 
-    // Newest first
+    // Sort by last_activity newest first
     list.sort(
       (a, b) =>
-        new Date(b.detected_at).getTime() -
-        new Date(a.detected_at).getTime(),
+        new Date(b.last_activity).getTime() -
+        new Date(a.last_activity).getTime(),
     );
     return list;
-  }, [state.incidents, filter, searchQuery]);
+  }, [incidents, filter, searchQuery]);
 
-  // Auto-select first matching incident if nothing is selected (or the
-  // current selection no longer matches the filter).
+  // Auto-select first matching incident if nothing is selected or current selection no longer matches
   useEffect(() => {
     if (filtered.length === 0) {
       setSelectedId(null);
       return;
     }
     const stillThere = filtered.some(
-      (i) => String(i.id) === String(selectedId),
+      (i) => String(i.pipeline_id) === String(selectedId),
     );
-    if (!stillThere) setSelectedId(String(filtered[0].id));
+    if (!stillThere) {
+      setSelectedId(String(filtered[0].pipeline_id));
+    }
   }, [filtered, selectedId]);
 
   // Keep the URL in sync with the selection
@@ -144,18 +275,9 @@ export function IncidentsPage() {
     }
   }, [selectedId, routeId, navigate]);
 
-  const selected = useMemo(
-    () =>
-      (state.incidents || []).find((i) => String(i.id) === String(selectedId)) ||
-      null,
-    [state.incidents, selectedId],
-  );
-
-
-
   return (
     <div className="flex-1 flex min-h-0 bg-[#F9FAFB]">
-      {/* ─── LEFT: filter + incident list ───────────────────────────── */}
+      {/* ─── LEFT: Filter + Incident List ───────────────────────────── */}
       <aside className="w-[340px] shrink-0 border-r border-[#E5E7EB] bg-white flex flex-col">
         {/* Filter pills */}
         <div className="p-4 border-b border-[#E5E7EB]">
@@ -187,30 +309,56 @@ export function IncidentsPage() {
             />
           </div>
           <div className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mt-3">
-            {filtered.length} INCIDENT{filtered.length === 1 ? "" : "S"}
+            {loadingList ? "LOADING..." : `${filtered.length} INCIDENT${filtered.length === 1 ? "" : "S"}`}
           </div>
         </div>
 
-        {/* List */}
+        {/* List content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {filtered.length === 0 ? (
+          {loadingList ? (
+            <div className="p-4 space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="animate-pulse bg-gray-50 border border-[#E5E7EB] rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between">
+                    <div className="h-2.5 bg-gray-200 rounded w-16" />
+                    <div className="h-4 bg-gray-200 rounded-full w-12" />
+                  </div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  <div className="flex justify-between pt-1">
+                    <div className="h-4 bg-gray-200 rounded w-16" />
+                    <div className="h-3 bg-gray-200 rounded w-10" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : errorList ? (
+            <div className="p-6 text-center text-xs text-rose-600 bg-rose-50 border-y border-rose-100">
+              <p className="font-bold">Error Loading Incidents</p>
+              <p className="mt-1 text-[11px] text-rose-500 leading-normal">{errorList}</p>
+              <button 
+                onClick={fetchList}
+                className="mt-3 px-3 py-1 bg-white text-rose-700 hover:bg-rose-100 border border-rose-200 rounded text-[10px] font-bold uppercase transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="p-8 text-center text-xs text-[#9CA3AF]">
               No incidents match this filter.
             </div>
           ) : (
             <ul className="divide-y divide-[#F3F4F6]">
               {filtered.map((inc) => {
-                const active = String(inc.id) === String(selectedId);
-                const summary = bestSummary(inc);
+                const active = String(inc.pipeline_id) === String(selectedId);
+                const isItemClosedStatus = isListItemClosed(inc);
                 return (
-                  <li key={inc.id}>
+                  <li key={inc.pipeline_id}>
                     <button
-                      onClick={() => setSelectedId(String(inc.id))}
+                      onClick={() => setSelectedId(String(inc.pipeline_id))}
                       className={cn(
                         "w-full text-left p-4 transition-colors relative",
-                        active
-                          ? "bg-[#F3F4F6]"
-                          : "hover:bg-[#F9FAFB]",
+                        active ? "bg-[#F3F4F6]" : "hover:bg-[#F9FAFB]",
                       )}
                     >
                       {active && (
@@ -218,47 +366,19 @@ export function IncidentsPage() {
                       )}
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <span className="text-[10px] font-bold text-[#6B7280]">
-                          #{inc.id}
+                          Pipeline #{inc.pipeline_id}
                         </span>
-                        <span
-                          className={cn(
-                            "text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
-                            inc.risk_tier === "High"
-                              ? "bg-rose-50 text-rose-700"
-                              : inc.risk_tier === "Medium"
-                                ? "bg-amber-50 text-amber-700"
-                                : "bg-emerald-50 text-emerald-700",
-                          )}
-                        >
-                          {inc.risk_tier}
-                        </span>
+                        {inc.is_escalated && (
+                          <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-rose-50 text-rose-700">
+                            Escalated
+                          </span>
+                        )}
                       </div>
                       <div className="text-[13px] font-bold text-[#111827] truncate">
                         {inc.pipeline_name}
                       </div>
-                      <div className="text-[11px] text-[#6B7280] mt-1 leading-relaxed line-clamp-2">
-                        {summary}
-                      </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <span
-                          className={cn(
-                            "text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
-                            inc.status === "Remediated"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : inc.status === "Escalated"
-                                ? "bg-rose-50 text-rose-700"
-                                : inc.status === "Failed"
-                                  ? "bg-gray-100 text-gray-600"
-                                  : inc.status === "Processing"
-                                    ? "bg-amber-50 text-amber-700"
-                                    : "bg-blue-50 text-blue-700",
-                          )}
-                        >
-                          {inc.status}
-                        </span>
-                        <span className="text-[10px] text-[#9CA3AF] font-medium">
-                          {timeAgo(inc.detected_at)}
-                        </span>
+                      <div className="text-[11px] text-[#6B7280] mt-1 leading-relaxed">
+                        Run #{inc.run_id} • {inc.cycle_count} cycle{inc.cycle_count === 1 ? "" : "s"}
                       </div>
                     </button>
                   </li>
@@ -269,16 +389,62 @@ export function IncidentsPage() {
         </div>
       </aside>
 
-      {/* ─── RIGHT: timeline pane ───────────────────────────────────── */}
+      {/* ─── RIGHT: Timeline Pane ───────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto custom-scrollbar p-8">
-        {!selected ? (
+        {loadingDetail ? (
+          <div className="max-w-3xl mx-auto space-y-8 animate-pulse">
+            <div className="border-b border-[#E5E7EB] pb-6 space-y-3">
+              <div className="h-6 bg-gray-200 rounded w-1/3" />
+              <div className="h-4 bg-gray-200 rounded w-1/2" />
+            </div>
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="space-y-4">
+                <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="space-y-2">
+                      <div className="h-3 bg-gray-200 rounded w-16" />
+                      <div className="h-5 bg-gray-200 rounded w-48" />
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full w-20" />
+                  </div>
+                  <div className="h-4 bg-gray-200 rounded w-full" />
+                  <div className="h-4 bg-gray-200 rounded w-5/6" />
+                </div>
+                {step < 3 && (
+                  <div className="flex justify-center py-1">
+                    <div className="w-1.5 h-6 bg-gray-100 rounded" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : errorDetail ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-8 max-w-md mx-auto">
+            <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 mb-4 border border-rose-100">
+              <X className="w-6 h-6" />
+            </div>
+            <h3 className="text-sm font-bold text-[#111827]">Failed to Load Timeline</h3>
+            <p className="text-xs text-[#6B7280] mt-1 leading-relaxed">
+              {errorDetail}
+            </p>
+            <button 
+              onClick={() => {
+                if (selectedId) {
+                  setSelectedId(null);
+                  setTimeout(() => setSelectedId(selectedId), 50);
+                }
+              }}
+              className="mt-4 px-4 py-1.5 bg-[#111827] text-white hover:bg-gray-800 rounded-lg text-xs font-bold transition-colors"
+            >
+              Retry Connection
+            </button>
+          </div>
+        ) : !selectedDetail ? (
           <div className="h-full flex items-center justify-center text-sm text-[#9CA3AF]">
             Select an incident on the left to inspect its timeline.
           </div>
         ) : (
-          <TimelineView
-            incident={selected}
-          />
+          <TimelineView detail={selectedDetail} />
         )}
       </main>
     </div>
@@ -286,350 +452,233 @@ export function IncidentsPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Right-pane: the three-step timeline
+// Timeline View Component (Step-by-step layout)
 // ─────────────────────────────────────────────────────────────────────
 
 interface TimelineViewProps {
-  incident: Incident;
+  detail: IncidentDetail;
 }
 
-function TimelineView({
-  incident,
-}: TimelineViewProps) {
-  const summary = bestSummary(incident);
-  const isResolved =
-    (incident.resolved || "no").toLowerCase() === "yes" ||
-    incident.status === "Remediated" ||
-    !!incident.resolved_time ||
-    !!incident.resolved_at;
+function TimelineView({ detail }: TimelineViewProps) {
+  const isResolved = !!detail.step4.resolved_at || detail.step4.pipeline_status === "SUCCEEDED";
+  const resolvedDisplayTime = detail.step4.resolved_at || detail.step1.detection_time;
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Header strip */}
+      {/* Header */}
       <div className="mb-6 pb-4 border-b border-[#E5E7EB]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-[#111827]">
-              {incident.pipeline_name}
+              {detail.pipeline_name}
             </h2>
             <div className="flex items-center gap-3 mt-1 text-xs text-[#6B7280]">
-              <span>Incident #{incident.id}</span>
+              <span>Pipeline #{detail.pipeline_id}</span>
               <span>·</span>
-              <span>{formatDateTime(incident.detected_at)}</span>
+              <span>Run #{detail.run_id}</span>
               <span>·</span>
               <span
                 className={cn(
                   "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-                  incident.status === "Remediated"
+                  isResolved
                     ? "bg-emerald-100 text-emerald-700"
-                    : incident.status === "Escalated"
+                    : detail.is_escalated
                       ? "bg-rose-100 text-rose-700"
-                      : incident.status === "Processing"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-blue-100 text-blue-700",
+                      : "bg-blue-100 text-blue-700",
                 )}
               >
-                {incident.status}
+                {isResolved ? "SUCCEEDED" : detail.step4.incident_status || detail.step4.pipeline_status || "ACTIVE"}
               </span>
-              {incident.acknowledged_at && (
-                <>
-                  <span>·</span>
-                  <span
-                    className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 inline-flex items-center gap-1"
-                    title={`Acknowledged at ${formatDateTime(incident.acknowledged_at)}`}
-                  >
-                    <UserCheck className="w-3 h-3" /> Acknowledged
-                  </span>
-                </>
-              )}
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* The three steps */}
-      <div className="relative">
-        {/* Dynamic step indexing — each visible step gets the next available
-            number so the dashed Pending placeholders stay in sequence with
-            the real steps. */}
-        {(() => {
-          // build the list of visible step descriptors in render order
-          type StepDescriptor =
-            | { kind: "detection" }
-            | { kind: "initial" }
-            | { kind: "initial-pending" }
-            | { kind: "acknowledged" }
-            | { kind: "escalation" }
-            | { kind: "escalation-pending" }
-            | { kind: "resolved" };
+      {/* Steps Path */}
+      <div className="relative space-y-2">
+        {/* Step 1: Incident Detection */}
+        <div>
+          <Step
+            index={1}
+            title={detail.step1.title || "Incident Detection"}
+            source={{ kind: "System", icon: Cpu }}
+            tone="default"
+          >
+            <Line label="Issue Summary" value={detail.step1.summary} />
+            <Line
+              label="Detection Time"
+              value={formatDateTime(detail.step1.detection_time)}
+            />
+            <Line label="Pipeline Name" value={detail.step1.pipeline_name} />
+            <Line label="Pipeline ID" value={String(detail.pipeline_id)} />
+            <Line label="Run ID" value={String(detail.run_id)} />
+          </Step>
+          <ConnectorLine />
+        </div>
 
-          const steps: StepDescriptor[] = [{ kind: "detection" }];
-
-          if (incident.initial_email_sent_at) {
-            steps.push({ kind: "initial" });
-          } else {
-            steps.push({ kind: "initial-pending" });
-          }
-
-          if (incident.acknowledged_at) {
-            steps.push({ kind: "acknowledged" });
-          }
-
-          if (incident.escalation_email_sent_at) {
-            steps.push({ kind: "escalation" });
-          } else if (!isResolved) {
-            steps.push({ kind: "escalation-pending" });
-          }
-
-          if (isResolved) {
-            steps.push({ kind: "resolved" });
-          }
-
-          const resolvedDisplayTime =
-            incident.resolved_time ||
-            incident.resolved_at ||
-            (incident.status === "Remediated" ? incident.detected_at : null);
-
-          return steps.map((step, i) => {
-            const idx = i + 1;
-            const isLast = i === steps.length - 1;
-            const connector = !isLast ? (
-              <ConnectorLine
-                muted={
-                  step.kind === "initial-pending" ||
-                  step.kind === "escalation-pending"
-                }
-              />
-            ) : null;
-
-            switch (step.kind) {
-              case "detection":
-                return (
-                  <div key="detection">
-                    <Step
-                      index={idx}
-                      title="Incident Detection"
-                      source={{ kind: "System", icon: Cpu }}
-                      time={incident.detected_at}
-                      tone="default"
-                    >
-                      <Line label="Issue Summary" value={summary} />
-                      <Line
-                        label="Detection Time"
-                        value={formatDateTime(incident.detected_at)}
-                      />
-                      <Line
-                        label="Pipeline ID"
-                        value={
-                          incident.pipeline_id
-                            ? incident.pipeline_id
-                            : `#${incident.id}`
-                        }
-                      />
-                      <Line
-                        label="Context"
-                        value={`Severity ${incident.risk_tier}`}
-                      />
-                    </Step>
-                    {connector}
+        {/* Step 2: Initial Notification */}
+        <div>
+          {detail.step2.cycles && detail.step2.cycles.length > 0 ? (
+            <Step
+              index={2}
+              title={detail.step2.title || "Initial Notification"}
+              source={{ kind: "Mailer", icon: Mail }}
+              tone="default"
+            >
+              <div className="space-y-3.5">
+                {detail.step2.cycles.map((cycle) => (
+                  <div key={cycle.cycle_number} className="border border-[#E5E7EB] bg-white rounded-xl p-3.5 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-2 mb-3">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-[#111827]">
+                        Notification Cycle {cycle.cycle_number}
+                      </span>
+                      <span className="text-[10px] font-mono text-[#9CA3AF]">
+                        {formatDateTime(cycle.sent_at)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {cycle.recipients.map((r, idx) => (
+                        <div key={idx} className="border border-[#E5E7EB] bg-gray-50/50 rounded-lg p-2.5 flex flex-col justify-between">
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-[#6B7280]">
+                              {r.role}
+                            </div>
+                            <div className="text-[11px] font-mono text-[#111827] truncate mt-0.5" title={r.email}>
+                              {r.email}
+                            </div>
+                          </div>
+                          <div className="mt-2.5 flex items-center justify-between">
+                            <span className={cn(
+                              "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full inline-flex items-center gap-1",
+                              r.status === "sent" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                            )}>
+                              <span className={cn("w-1 h-1 rounded-full", r.status === "sent" ? "bg-emerald-500" : "bg-rose-500")} />
+                              {r.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                );
+                ))}
+              </div>
+            </Step>
+          ) : (
+            <PlaceholderStep
+              index={2}
+              title={detail.step2.title || "Initial Notification"}
+              note="Awaiting initial mail notifications to dispatch."
+            />
+          )}
+          <ConnectorLine />
+        </div>
 
-              case "initial":
-                return (
-                  <div key="initial">
-                    <Step
-                      index={idx}
-                      title="Initial Notification"
-                      source={{ kind: "Mailer", icon: Mail }}
-                      time={incident.initial_email_sent_at}
-                      tone="default"
-                    >
-                      <p className="text-xs text-[#6B7280] leading-relaxed">
-                        1st notification sent by mail to{" "}
-                        <b className="text-[#111827]">
-                          {incident.initial_email_role || "DataOps"}
-                        </b>{" "}
-                        &lt;
-                        <span className="font-mono text-[11px] text-[#374151]">
-                          {incident.initial_email_recipient}
-                        </span>
-                        &gt; with possible solution.
-                      </p>
-                      <p className="text-[10px] text-[#9CA3AF] mt-1.5 font-mono">
-                        Sent at{" "}
-                        {formatDateTime(incident.initial_email_sent_at)}
-                      </p>
-                      {!incident.acknowledged_at && (
-                        <p className="text-[10px] text-amber-700 mt-1.5">
-                          Waiting for recipient to click the <b>Check</b>{" "}
-                          button in the email…
-                        </p>
-                      )}
-                    </Step>
-                    {connector}
+        {/* Step 3: Escalation */}
+        <div>
+          {detail.step3.cycles && detail.step3.cycles.length > 0 ? (
+            <Step
+              index={3}
+              title={detail.step3.title || "Escalation"}
+              source={{ kind: "System", icon: AlertTriangle }}
+              tone="alert"
+            >
+              <div className="space-y-3.5">
+                {detail.step3.cycles.map((cycle) => (
+                  <div key={cycle.cycle_number} className="border border-rose-200 bg-white rounded-xl p-3.5 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-rose-100 pb-2 mb-3">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-rose-700">
+                        Escalation Cycle {cycle.cycle_number}
+                      </span>
+                      <span className="text-[10px] font-mono text-[#9CA3AF]">
+                        {formatDateTime(cycle.sent_at)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {cycle.recipients.map((r, idx) => (
+                        <div key={idx} className="border border-[#E5E7EB] bg-gray-50/50 rounded-lg p-2.5 flex flex-col justify-between">
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-[#6B7280]">
+                              {r.role}
+                            </div>
+                            <div className="text-[11px] font-mono text-[#111827] truncate mt-0.5" title={r.email}>
+                              {r.email}
+                            </div>
+                          </div>
+                          <div className="mt-2.5 flex items-center justify-between">
+                            <span className={cn(
+                              "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full inline-flex items-center gap-1",
+                              r.status === "sent" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                            )}>
+                              <span className={cn("w-1 h-1 rounded-full", r.status === "sent" ? "bg-emerald-500" : "bg-rose-500")} />
+                              {r.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                );
+                ))}
+              </div>
+            </Step>
+          ) : (
+            <PlaceholderStep
+              index={3}
+              title={detail.step3.title || "Escalation"}
+              note={isResolved ? "Escalation not required (Pipeline resolved within initial SLA)." : "Will dispatch automatically if the SLA window expires without resolution."}
+            />
+          )}
+          <ConnectorLine />
+        </div>
 
-              case "initial-pending":
-                return (
-                  <div key="initial-pending">
-                    <PlaceholderStep
-                      index={idx}
-                      title="Initial Notification"
-                      note={
-                        incident.status === "Detected" ||
-                        incident.status === "Reasoning"
-                          ? "Pending — Mistral diagnosis must complete before mail goes out."
-                          : "No initial email was sent (SMTP may not be configured)."
-                      }
-                    />
-                    {connector}
+        {/* Step 4: Resolution */}
+        <div>
+          <Step
+            index={4}
+            title={detail.step4.title || "Resolution"}
+            source={{ kind: "System", icon: CheckCircle2 }}
+            tone={isResolved ? "success" : "default"}
+          >
+            {isResolved ? (
+              <div className="border border-emerald-200 bg-emerald-50/30 rounded-xl p-3.5 text-xs text-emerald-800 leading-relaxed">
+                <p className="font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Pipeline Resolved
+                </p>
+                <p className="mt-1">
+                  The issue has been completely remediated. Successful pipeline completion was detected and verified at <span className="font-mono font-bold text-[#111827]">{formatDateTime(resolvedDisplayTime)}</span>.
+                </p>
+              </div>
+            ) : (
+              <div className="border border-[#E5E7EB] bg-gray-50/50 rounded-xl p-3.5 text-xs text-[#6B7280] leading-relaxed">
+                <p className="font-bold flex items-center gap-1.5 text-[#374151]">
+                  SLA Active & Monitoring
+                </p>
+                <p className="mt-1">
+                  Timeline remains open. Awaiting a successful pipeline run execution or manual engineer intervention to verify resolution.
+                </p>
+                <div className="mt-3 flex gap-4 text-[10px] uppercase font-bold tracking-wider">
+                  <div>
+                    Pipeline: <span className="text-rose-600">{detail.step4.pipeline_status || "FAILED"}</span>
                   </div>
-                );
-
-              case "acknowledged":
-                return (
-                  <div key="acknowledged">
-                    <Step
-                      index={idx}
-                      title="Acknowledged by DataOps Engineer"
-                      source={{ kind: "User", icon: UserCheck }}
-                      time={incident.acknowledged_at}
-                      tone="success"
-                    >
-                      <p className="text-xs text-[#6B7280] leading-relaxed">
-                        <b className="text-[#111827]">
-                          {incident.acknowledged_by ||
-                            incident.initial_email_recipient ||
-                            "DataOps Engineer"}
-                        </b>{" "}
-                        clicked the <b>Check</b> button in the alert email.
-                        Status is now{" "}
-                        <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                          Processing
-                        </span>{" "}
-                        — the escalation deadline has been extended to{" "}
-                        <b className="text-[#111827]">24 hours</b>.
-                      </p>
-                      <p className="text-[10px] text-[#9CA3AF] mt-1.5 font-mono">
-                        Acknowledged at{" "}
-                        {formatDateTime(incident.acknowledged_at)}
-                      </p>
-                    </Step>
-                    {connector}
+                  <div>
+                    Incident: <span className="text-amber-600">{detail.step4.incident_status || "ACTIVE"}</span>
                   </div>
-                );
-
-              case "escalation":
-                return (
-                  <div key="escalation">
-                    <Step
-                      index={idx}
-                      title="Escalation"
-                      source={{ kind: "System", icon: AlertTriangle }}
-                      time={incident.escalation_email_sent_at}
-                      tone="alert"
-                    >
-                      <Line label="Issue summary" value={summary} />
-                      <Line
-                        label="Detection time"
-                        value={formatDateTime(incident.detected_at)}
-                      />
-                      <Line
-                        label="Pipeline ID"
-                        value={incident.pipeline_id || `#${incident.id}`}
-                      />
-                      <p className="text-xs text-[#6B7280] leading-relaxed mt-2">
-                        Earlier mail sent on{" "}
-                        <span className="font-mono text-[11px]">
-                          {formatDateTime(incident.initial_email_sent_at)}
-                        </span>{" "}
-                        to{" "}
-                        <b className="text-[#111827]">
-                          {incident.initial_email_recipient?.split("@")[0] ||
-                            incident.initial_email_role ||
-                            "DataOps"}
-                        </b>
-                        . Need immediate attention with the suggested fix —
-                        escalation mail sent to{" "}
-                        <b className="text-[#111827]">
-                          {(incident.escalation_email_recipients || [])
-                            .map((r) => r.role)
-                            .filter((v, i2, a) => a.indexOf(v) === i2)
-                            .join(", ") || "senior data engineer"}
-                        </b>
-                        .
-                      </p>
-                      {!!incident.escalation_email_recipients?.length && (
-                        <EscalationList
-                          recipients={incident.escalation_email_recipients}
-                        />
-                      )}
-                      <p className="text-[10px] text-[#9CA3AF] mt-2 font-mono">
-                        Escalated at{" "}
-                        {formatDateTime(incident.escalation_email_sent_at)}
-                      </p>
-                    </Step>
-                    {connector}
-                  </div>
-                );
-
-              case "escalation-pending":
-                return (
-                  <div key="escalation-pending">
-                    <PlaceholderStep
-                      index={idx}
-                      title="Escalation"
-                      note={
-                        incident.acknowledged_at
-                          ? "Will fire automatically if not resolved within 24h of acknowledgement."
-                          : incident.initial_email_sent_at
-                            ? `Will fire if no one clicks Check within ${escalationWindow()}.`
-                            : "Will fire once the initial mail has been sent and the SLA window expires."
-                      }
-                    />
-                    {connector}
-                  </div>
-                );
-
-              case "resolved":
-                return (
-                  <div key="resolved">
-                    <Step
-                      index={idx}
-                      title="Issue Resolved"
-                      source={{ kind: "System", icon: CheckCircle2 }}
-                      time={resolvedDisplayTime}
-                      tone="success"
-                    >
-                      <p className="text-xs text-[#6B7280] leading-relaxed">
-                        Issue was resolved at{" "}
-                        <span className="font-mono text-[11px] font-bold text-[#111827]">
-                          {formatDateTime(resolvedDisplayTime)}
-                        </span>
-                        .
-                      </p>
-                    </Step>
-                  </div>
-                );
-            }
-          });
-        })()}
+                </div>
+              </div>
+            )}
+          </Step>
+        </div>
       </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Sub-components
+// Step Layout Helper Components
 // ─────────────────────────────────────────────────────────────────────
 
 interface StepProps {
   index: number;
   title: string;
-  time?: string | null;
   source: { kind: string; icon: any };
   tone: "default" | "alert" | "success";
   children: React.ReactNode;
@@ -665,19 +714,17 @@ function Step({ index, title, source, tone, children }: StepProps) {
             "inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md",
             source.kind === "Mailer"
               ? "bg-blue-50 text-blue-700"
-              : source.kind === "User"
-                ? "bg-emerald-50 text-emerald-700"
-                : tone === "alert"
-                  ? "bg-rose-50 text-rose-700"
-                  : tone === "success"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-amber-50 text-amber-700",
+              : tone === "alert"
+                ? "bg-rose-50 text-rose-700"
+                : tone === "success"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-[#F3F4F6] text-[#6B7280]",
           )}
         >
           <Icon className="w-3 h-3" /> {source.kind}
         </span>
       </div>
-      <div className="space-y-1">{children}</div>
+      <div className="space-y-1.5">{children}</div>
     </motion.section>
   );
 }
@@ -711,14 +758,10 @@ function PlaceholderStep({
   );
 }
 
-function ConnectorLine({ muted = false }: { muted?: boolean }) {
+function ConnectorLine() {
   return (
     <div className="flex justify-center py-1.5">
-      <ArrowDown
-        size={24}
-        strokeWidth={3}
-        className={cn(muted ? "text-[#D1D5DB]" : "text-[#9CA3AF]")}
-      />
+      <ArrowDown size={20} strokeWidth={3} className="text-[#D1D5DB]" />
     </div>
   );
 }
@@ -727,36 +770,7 @@ function Line({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-xs text-[#374151] leading-relaxed">
       <span className="text-[#6B7280]">{label}:</span>{" "}
-      <span className="text-[#111827]">{value}</span>
+      <span className="text-[#111827] font-medium">{value}</span>
     </div>
   );
-}
-
-function EscalationList({
-  recipients,
-}: {
-  recipients: EscalationRecipient[];
-}) {
-  return (
-    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {recipients.map((r, i) => (
-        <div
-          key={`${r.email}-${i}`}
-          className="border border-[#E5E7EB] bg-white rounded-md px-2.5 py-1.5"
-        >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
-            {r.role}
-          </div>
-          <div className="text-[11px] font-mono text-[#111827] truncate">
-            {r.email}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Just a label — the actual window is configured server-side. */
-function escalationWindow(): string {
-  return "the SLA window";
 }
