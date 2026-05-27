@@ -2,6 +2,7 @@ import { Activity, Brain, Settings, Zap, Plus } from 'lucide-react';
 import { useStore } from '../hooks/useStore';
 import { cn } from '../lib/utils';
 import type { ReactNode } from 'react';
+import { LLMModeSwitch } from "./LLMModeSwitch";
 
 interface Props {
   title: string;
@@ -73,6 +74,7 @@ export function Header({ title, subtitle, actions, onConnect }: Props) {
       </div>
 
       <div className="flex items-center gap-3">
+        <LLMModeSwitch />
         <button 
           onClick={onConnect}
           className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[10px] font-bold uppercase tracking-[0.18em] rounded transition-all shadow-sm"

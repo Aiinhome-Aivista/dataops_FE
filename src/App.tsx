@@ -12,6 +12,7 @@ import { ConnectorsPage } from "./pages/Connectors";
 import { AuditPage } from "./pages/Audit";
 import { RunbooksPage } from "./pages/runbooks/RunbooksPage";
 import { MetricsPage } from "./pages/Metrics"; // ← NEW
+import KnowledgeGraphPage from "./pages/KnowledgeGraph";
 import { LoginPage } from "./pages/Login";
 import { LandingPage } from "./pages/Landing";
 import { auth } from "./services/api";
@@ -69,6 +70,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Runbooks",
     subtitle:
       "Upload SOPs · stored locally · indexed into the RAG vector store",
+  },
+  "/app/knowledge-graph": {
+    title: "Knowledge Graph",
+    subtitle: "Distilled runbook associations, error pattern links and fix actions",
   },
   "/app/metrics": {
     // ← NEW
@@ -128,6 +133,7 @@ function Shell() {
               <Route path="/connectors" element={<ConnectorsPage />} />
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/runbooks" element={<RunbooksPage />} />
+              <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
               <Route path="/metrics" element={<MetricsPage />} /> {/* ← NEW */}
             </Routes>
           </main>
