@@ -143,6 +143,9 @@ export interface Incident {
   resolved?: "yes" | "no" | string | null;
   resolved_time?: string | null;
 
+  jira_ticket_key?: string | null;
+  jira_ticket_url?: string | null;
+
   // ─── Pipeline-level escalation tracking ──
   is_active?: boolean;
   escalation_count?: number;
@@ -229,20 +232,21 @@ export interface DashboardStats {
 
 export interface HealthMetric {
   time: string;
-  mttd: number;
-  mttr: number;
+  tickets_raised: number;
+  tickets_ai_solved: number;
+  tickets_human_solved: number;
+  mttr_minutes: number;
   success_rate: number;
-  auto_resolved: number;
-  human_required: number;
 }
 
 export interface MetricsSummary {
-  mttr_avg: number;
-  mttd_avg: number;
-  auto_recovery_pct: number;
-  toil_saved_pct: number;
-  incidents_open: number;
-  incidents_total: number;
+  total_tickets: number;
+  ai_resolved: number;
+  human_resolved: number;
+  ai_resolution_pct: number;
+  mttr_avg_minutes: number;
+  open_incidents: number;
+  jira_tickets_created: number;
 }
 
 export interface Recommendation {

@@ -39,6 +39,7 @@ import {
   RefreshCw,
   Users,
   Activity,
+  Ticket,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useStore } from "../hooks/useStore";
@@ -322,6 +323,20 @@ function TimelineView({ incident }: TimelineViewProps) {
                   </span>
                 </>
               )}
+              {incident.jira_ticket_key && (
+                <>
+                  <span>·</span>
+                  <a
+                    href={incident.jira_ticket_url || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-bold tracking-wider text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded inline-flex items-center hover:bg-blue-100 transition-colors"
+                  >
+                    <Ticket className="w-3 h-3 mr-1" />
+                    Jira: {incident.jira_ticket_key}
+                  </a>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -450,6 +465,13 @@ function JourneyTimeline({ incidentId }: JourneyTimelineProps) {
           icon: Check,
           bg: "bg-emerald-50 border-emerald-200 text-emerald-700",
           iconBg: "bg-emerald-100 text-emerald-700",
+        };
+      case "JIRA_TICKET_CREATED":
+        return {
+          title: "Jira Ticket Created",
+          icon: Ticket,
+          bg: "bg-blue-50 border-blue-200 text-blue-700",
+          iconBg: "bg-blue-100 text-blue-700",
         };
       default:
         return {
