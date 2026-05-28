@@ -31,18 +31,12 @@ import {
   ShieldAlert,
   Mail,
   AlertTriangle,
-  Cpu,
   Check,
   CheckCircle2,
   UserCheck,
   X,
-  ChevronDown,
-  ArrowDown,
   Clock,
-  Eye,
   RefreshCw,
-  Play,
-  Zap,
   Users,
   Activity,
 } from "lucide-react";
@@ -50,7 +44,7 @@ import { motion } from "motion/react";
 import { useStore } from "../hooks/useStore";
 import { cn, formatDateTime, timeAgo } from "../lib/utils";
 import { api } from "../services/api";
-import type { Incident, EscalationRecipient, IncidentEvent } from "../types";
+import type { Incident, IncidentEvent } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
@@ -289,13 +283,6 @@ interface TimelineViewProps {
 }
 
 function TimelineView({ incident }: TimelineViewProps) {
-  const summary = bestSummary(incident);
-  const isResolved =
-    (incident.resolved || "no").toLowerCase() === "yes" ||
-    incident.status === "Remediated" ||
-    !!incident.resolved_time ||
-    !!incident.resolved_at;
-
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header strip */}
@@ -340,411 +327,10 @@ function TimelineView({ incident }: TimelineViewProps) {
         </div>
       </div>
 
-      {/* The three steps */}
-      <div className="relative">
-        {/* Dynamic step indexing — each visible step gets the next available
-            number so the dashed Pending placeholders stay in sequence with
-            the real steps. */}
-        {(() => {
-          // build the list of visible step descriptors in render order
-          type StepDescriptor =
-            | { kind: "detection" }
-            | { kind: "initial" }
-            | { kind: "initial-pending" }
-            | { kind: "acknowledged" }
-            | { kind: "escalation" }
-            | { kind: "escalation-pending" }
-            | { kind: "resolved" };
-
-          const steps: StepDescriptor[] = [{ kind: "detection" }];
-
-          if (incident.initial_email_sent_at) {
-            steps.push({ kind: "initial" });
-          } else {
-            steps.push({ kind: "initial-pending" });
-          }
-
-          if (incident.acknowledged_at) {
-            steps.push({ kind: "acknowledged" });
-          }
-
-          if (incident.escalation_email_sent_at) {
-            steps.push({ kind: "escalation" });
-          } else if (!isResolved) {
-            steps.push({ kind: "escalation-pending" });
-          }
-
-          if (isResolved) {
-            steps.push({ kind: "resolved" });
-          }
-
-          const resolvedDisplayTime =
-            incident.resolved_time ||
-            incident.resolved_at ||
-            (incident.status === "Remediated" ? incident.detected_at : null);
-
-          return steps.map((step, i) => {
-            const idx = i + 1;
-            const isLast = i === steps.length - 1;
-            const connector = !isLast ? (
-              <ConnectorLine
-                muted={
-                  step.kind === "initial-pending" ||
-                  step.kind === "escalation-pending"
-                }
-              />
-            ) : null;
-
-            switch (step.kind) {
-              case "detection":
-                return (
-                  <div key="detection">
-                    <Step
-                      index={idx}
-                      title="Incident Detection"
-                      source={{ kind: "System", icon: Cpu }}
-                      time={incident.detected_at}
-                      tone="default"
-                    >
-                      <Line label="Issue Summary" value={summary} />
-                      <Line
-                        label="Detection Time"
-                        value={formatDateTime(incident.detected_at)}
-                      />
-                      <Line
-                        label="Pipeline ID"
-                        value={
-                          incident.pipeline_id
-                            ? incident.pipeline_id
-                            : `#${incident.id}`
-                        }
-                      />
-                      <Line
-                        label="Context"
-                        value={`Severity ${incident.risk_tier}`}
-                      />
-                    </Step>
-                    {connector}
-                  </div>
-                );
-
-              case "initial":
-                return (
-                  <div key="initial">
-                    <Step
-                      index={idx}
-                      title="Initial Notification"
-                      source={{ kind: "Mailer", icon: Mail }}
-                      time={incident.initial_email_sent_at}
-                      tone="default"
-                    >
-                      <p className="text-xs text-[#6B7280] leading-relaxed">
-                        1st notification sent by mail to{" "}
-                        <b className="text-[#111827]">
-                          {incident.initial_email_role || "DataOps"}
-                        </b>{" "}
-                        &lt;
-                        <span className="font-mono text-[11px] text-[#374151]">
-                          {incident.initial_email_recipient}
-                        </span>
-                        &gt; with possible solution.
-                      </p>
-                      <p className="text-[10px] text-[#9CA3AF] mt-1.5 font-mono">
-                        Sent at {formatDateTime(incident.initial_email_sent_at)}
-                      </p>
-                      {!incident.acknowledged_at && (
-                        <p className="text-[10px] text-amber-700 mt-1.5">
-                          Waiting for recipient to click the <b>Check</b> button
-                          in the email…
-                        </p>
-                      )}
-                    </Step>
-                    {connector}
-                  </div>
-                );
-
-              case "initial-pending":
-                return (
-                  <div key="initial-pending">
-                    <PlaceholderStep
-                      index={idx}
-                      title="Initial Notification"
-                      note={
-                        incident.status === "Detected" ||
-                        incident.status === "Reasoning"
-                          ? "Pending — Mistral diagnosis must complete before mail goes out."
-                          : "No initial email was sent (SMTP may not be configured)."
-                      }
-                    />
-                    {connector}
-                  </div>
-                );
-
-              case "acknowledged":
-                return (
-                  <div key="acknowledged">
-                    <Step
-                      index={idx}
-                      title="Acknowledged by DataOps Engineer"
-                      source={{ kind: "User", icon: UserCheck }}
-                      time={incident.acknowledged_at}
-                      tone="success"
-                    >
-                      <p className="text-xs text-[#6B7280] leading-relaxed">
-                        <b className="text-[#111827]">
-                          {incident.acknowledged_by ||
-                            incident.initial_email_recipient ||
-                            "DataOps Engineer"}
-                        </b>{" "}
-                        clicked the <b>Check</b> button in the alert email.
-                        Status is now{" "}
-                        <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                          Processing
-                        </span>{" "}
-                        — the escalation deadline has been extended to{" "}
-                        <b className="text-[#111827]">24 hours</b>.
-                      </p>
-                      <p className="text-[10px] text-[#9CA3AF] mt-1.5 font-mono">
-                        Acknowledged at{" "}
-                        {formatDateTime(incident.acknowledged_at)}
-                      </p>
-                    </Step>
-                    {connector}
-                  </div>
-                );
-
-              case "escalation":
-                return (
-                  <div key="escalation">
-                    <Step
-                      index={idx}
-                      title="Escalation"
-                      source={{ kind: "System", icon: AlertTriangle }}
-                      time={incident.escalation_email_sent_at}
-                      tone="alert"
-                    >
-                      <Line label="Issue summary" value={summary} />
-                      <Line
-                        label="Detection time"
-                        value={formatDateTime(incident.detected_at)}
-                      />
-                      <Line
-                        label="Pipeline ID"
-                        value={incident.pipeline_id || `#${incident.id}`}
-                      />
-                      <p className="text-xs text-[#6B7280] leading-relaxed mt-2">
-                        Earlier mail sent on{" "}
-                        <span className="font-mono text-[11px]">
-                          {formatDateTime(incident.initial_email_sent_at)}
-                        </span>{" "}
-                        to{" "}
-                        <b className="text-[#111827]">
-                          {incident.initial_email_recipient?.split("@")[0] ||
-                            incident.initial_email_role ||
-                            "DataOps"}
-                        </b>
-                        . Need immediate attention with the suggested fix —
-                        escalation mail sent to{" "}
-                        <b className="text-[#111827]">
-                          {(incident.escalation_email_recipients || [])
-                            .map((r) => r.role)
-                            .filter((v, i2, a) => a.indexOf(v) === i2)
-                            .join(", ") || "senior data engineer"}
-                        </b>
-                        .
-                      </p>
-                      {!!incident.escalation_email_recipients?.length && (
-                        <EscalationList
-                          recipients={incident.escalation_email_recipients}
-                        />
-                      )}
-                      <p className="text-[10px] text-[#9CA3AF] mt-2 font-mono">
-                        Escalated at{" "}
-                        {formatDateTime(incident.escalation_email_sent_at)}
-                      </p>
-                    </Step>
-                    {connector}
-                  </div>
-                );
-
-              case "escalation-pending":
-                return (
-                  <div key="escalation-pending">
-                    <PlaceholderStep
-                      index={idx}
-                      title="Escalation"
-                      note={
-                        incident.acknowledged_at
-                          ? "Will fire automatically if not resolved within 24h of acknowledgement."
-                          : incident.initial_email_sent_at
-                            ? `Will fire if no one clicks Check within ${escalationWindow()}.`
-                            : "Will fire once the initial mail has been sent and the SLA window expires."
-                      }
-                    />
-                    {connector}
-                  </div>
-                );
-
-              case "resolved":
-                return (
-                  <div key="resolved">
-                    <Step
-                      index={idx}
-                      title="Issue Resolved"
-                      source={{ kind: "System", icon: CheckCircle2 }}
-                      time={resolvedDisplayTime}
-                      tone="success"
-                    >
-                      <p className="text-xs text-[#6B7280] leading-relaxed">
-                        Issue was resolved at{" "}
-                        <span className="font-mono text-[11px] font-bold text-[#111827]">
-                          {formatDateTime(resolvedDisplayTime)}
-                        </span>
-                        .
-                      </p>
-                    </Step>
-                  </div>
-                );
-            }
-          });
-        })()}
-      </div>
-
       {/* Journey Timeline */}
       <JourneyTimeline incidentId={incident.id} />
     </div>
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────────────────────────────
-
-interface StepProps {
-  index: number;
-  title: string;
-  time?: string | null;
-  source: { kind: string; icon: any };
-  tone: "default" | "alert" | "success";
-  children: React.ReactNode;
-}
-
-function Step({ index, title, source, tone, children }: StepProps) {
-  const Icon = source.icon;
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18 }}
-      className={cn(
-        "relative bg-white border rounded-2xl p-5 shadow-sm",
-        tone === "alert"
-          ? "border-rose-200 bg-rose-50/30"
-          : tone === "success"
-            ? "border-emerald-200 bg-emerald-50/30"
-            : "border-[#E5E7EB]",
-      )}
-    >
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
-            Step {index}
-          </div>
-          <h3 className="text-base font-bold text-[#111827] mt-1">{title}</h3>
-        </div>
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md",
-            source.kind === "Mailer"
-              ? "bg-blue-50 text-blue-700"
-              : source.kind === "User"
-                ? "bg-emerald-50 text-emerald-700"
-                : tone === "alert"
-                  ? "bg-rose-50 text-rose-700"
-                  : tone === "success"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-amber-50 text-amber-700",
-          )}
-        >
-          <Icon className="w-3 h-3" /> {source.kind}
-        </span>
-      </div>
-      <div className="space-y-1">{children}</div>
-    </motion.section>
-  );
-}
-
-function PlaceholderStep({
-  index,
-  title,
-  note,
-}: {
-  index: number;
-  title: string;
-  note: string;
-}) {
-  return (
-    <section className="relative bg-white border border-dashed border-[#E5E7EB] rounded-2xl p-5">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
-            Step {index}
-          </div>
-          <h3 className="text-sm font-bold text-[#9CA3AF] mt-1">{title}</h3>
-        </div>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] bg-[#F3F4F6] px-2 py-1 rounded-md">
-          Pending
-        </span>
-      </div>
-      <p className="text-xs text-[#9CA3AF] mt-2 leading-relaxed">{note}</p>
-    </section>
-  );
-}
-
-function ConnectorLine({ muted = false }: { muted?: boolean }) {
-  return (
-    <div className="flex justify-center py-1.5">
-      <ArrowDown
-        size={24}
-        strokeWidth={3}
-        className={cn(muted ? "text-[#D1D5DB]" : "text-[#9CA3AF]")}
-      />
-    </div>
-  );
-}
-
-function Line({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-xs text-[#374151] leading-relaxed">
-      <span className="text-[#6B7280]">{label}:</span>{" "}
-      <span className="text-[#111827]">{value}</span>
-    </div>
-  );
-}
-
-function EscalationList({ recipients }: { recipients: EscalationRecipient[] }) {
-  return (
-    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {recipients.map((r, i) => (
-        <div
-          key={`${r.email}-${i}`}
-          className="border border-[#E5E7EB] bg-white rounded-md px-2.5 py-1.5"
-        >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
-            {r.role}
-          </div>
-          <div className="text-[11px] font-mono text-[#111827] truncate">
-            {r.email}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Just a label — the actual window is configured server-side. */
-function escalationWindow(): string {
-  return "the SLA window";
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -793,7 +379,7 @@ function JourneyTimeline({ incidentId }: JourneyTimelineProps) {
 
   if (loading && events.length === 0) {
     return (
-      <div className="mt-8 p-6 bg-white border border-[#E5E7EB] rounded-2xl shadow-sm text-center">
+      <div className="mt-6 p-6 bg-white border border-[#E5E7EB] rounded-2xl shadow-sm text-center">
         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900 mx-auto"></div>
         <p className="text-xs text-[#6B7280] mt-2">
           Loading incident event journey...
@@ -876,7 +462,7 @@ function JourneyTimeline({ incidentId }: JourneyTimelineProps) {
   };
 
   return (
-    <div className="mt-10 border border-[#E5E7EB] bg-white rounded-2xl p-6 shadow-sm">
+    <div className="mt-6 border border-[#E5E7EB] bg-white rounded-2xl p-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4 mb-6">
         <div>
           <h3 className="text-base font-bold text-[#111827]">
