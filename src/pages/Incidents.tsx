@@ -284,6 +284,30 @@ interface TimelineViewProps {
 }
 
 function TimelineView({ incident }: TimelineViewProps) {
+  const [loadingAction, setLoadingAction] = useState<"approve" | "reject" | null>(null);
+
+  const handleApprove = async () => {
+    setLoadingAction("approve");
+    try {
+      await api.approveIncident(String(incident.id));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const handleReject = async () => {
+    setLoadingAction("reject");
+    try {
+      await api.rejectIncident(String(incident.id));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header strip */}
@@ -341,6 +365,36 @@ function TimelineView({ incident }: TimelineViewProps) {
           </div>
         </div>
       </div>
+      
+      {incident.status === "Awaiting Approval" && (
+        <div className="mb-6 p-5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Human Approval Required
+            </h3>
+            <p className="text-xs text-amber-700 mt-1">
+              This incident has a remediation plan ready but requires authorization to proceed.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleReject}
+              disabled={!!loadingAction}
+              className="px-4 py-2 text-xs font-bold text-amber-700 bg-white border border-amber-200 rounded-lg hover:bg-amber-100 disabled:opacity-50 transition-colors"
+            >
+              {loadingAction === "reject" ? "Rejecting..." : "Reject"}
+            </button>
+            <button
+              onClick={handleApprove}
+              disabled={!!loadingAction}
+              className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              {loadingAction === "approve" ? "Approving..." : "Approve & Execute"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Journey Timeline */}
       <JourneyTimeline incidentId={incident.id} />
